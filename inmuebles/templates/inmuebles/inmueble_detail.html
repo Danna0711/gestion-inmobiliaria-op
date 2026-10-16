@@ -1,0 +1,40 @@
+{% extends "inmuebles/base.html" %}
+{% block title %}{{ inmueble }} · OP Agente Inmobiliario{% endblock %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-3">
+  <h1 class="h3 mb-0">{{ inmueble }}</h1>
+  <div class="d-flex gap-2">
+    <a class="btn btn-outline-secondary" href="{% url 'inmueble_list' %}">Volver</a>
+    <a class="btn btn-primary" href="{% url 'inmueble_update' inmueble.pk %}">Editar</a>
+    <a class="btn btn-outline-danger" href="{% url 'inmueble_delete' inmueble.pk %}">Eliminar</a>
+  </div>
+</div>
+
+<div class="card shadow-sm mb-3">
+  <div class="card-header fw-semibold">Propietario</div>
+  <div class="card-body">
+    <div class="fw-semibold">{{ inmueble.propietario.nombre_completo }}</div>
+    <div class="text-muted small">
+      Identificación: {{ inmueble.propietario.numero_identificacion }} ·
+      Contacto: {{ inmueble.propietario.numero_contacto }}
+      {% if inmueble.propietario.correo %}· {{ inmueble.propietario.correo }}{% endif %}
+    </div>
+  </div>
+</div>
+
+<div class="card shadow-sm mb-3">
+  <div class="card-header fw-semibold">Datos del inmueble</div>
+  <div class="card-body">
+    <dl class="row mb-0">
+      {% for etiqueta, valor in campos %}
+        <dt class="col-sm-4 col-lg-3">{{ etiqueta }}</dt>
+        <dd class="col-sm-8 col-lg-3">{{ valor }}</dd>
+      {% endfor %}
+    </dl>
+  </div>
+</div>
+
+<div class="alert alert-info">
+  Las secciones de fotografías, documentos y pólizas se habilitarán en las siguientes actividades del cronograma.
+</div>
+{% endblock %}

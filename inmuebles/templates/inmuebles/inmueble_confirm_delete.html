@@ -1,0 +1,15 @@
+{% extends "inmuebles/base.html" %}
+{% block title %}Eliminar inmueble · OP Agente Inmobiliario{% endblock %}
+{% block content %}
+<div class="card shadow-sm col-md-7 mx-auto">
+  <div class="card-body">
+    <h1 class="h4">Eliminar inmueble</h1>
+    <p>¿Seguro que deseas eliminar <strong>{{ object }}</strong>? Se borrarán también sus fotografías, documentos y pólizas. Esta acción no se puede deshacer.</p>
+    <form method="post" class="d-flex gap-2">
+      {% csrf_token %}
+      <button class="btn btn-danger" type="submit">Sí, eliminar</button>
+      <a class="btn btn-outline-secondary" href="{% url 'inmueble_detail' object.pk %}">Cancelar</a>
+    </form>
+  </div>
+</div>
+{% endblock %}
