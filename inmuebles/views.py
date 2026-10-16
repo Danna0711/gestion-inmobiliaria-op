@@ -1,3 +1,6 @@
+from datetime import date
+from decimal import Decimal
+
 from django.contrib import messages
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.db.models import Q
@@ -5,6 +8,7 @@ from django.urls import reverse_lazy
 from django.utils.http import url_has_allowed_host_and_scheme
 from django.views.generic import CreateView, DeleteView, DetailView, ListView, UpdateView
 
+from . import formato
 from .forms import InmuebleForm, PropietarioForm
 from .models import Inmueble, Propietario
 
@@ -70,7 +74,13 @@ class InmuebleDetailView(LoginRequiredMixin, DetailView):
                 valor = getattr(obj, f"get_{f.name}_display")()
             elif isinstance(valor, bool):
                 valor = "Sí" if valor else "No"
-            campos.append((f.verbose_name.capitalize(), valor))
+            elif f.name in formato.CAMPOS_DINERO:
+                valor = formato.pesos(valor)
+            elif isinstance(valor, Decimal):
+                valor = formato.numero(valor)
+            elif isinstance(valor, date):
+                valor = formato.fecha(valor)
+            campos.append((formato.ETIQUETAS.get(f.name, f.verbose_name.capitalize()), valor))
         ctx["campos"] = campos
         return ctx
 

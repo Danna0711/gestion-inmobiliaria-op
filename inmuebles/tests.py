@@ -122,3 +122,31 @@ class ModuloInmueblesTests(TestCase):
     def test_listado_propietarios(self):
         resp = self.client.get(reverse("propietario_list"), {"q": "Gómez"})
         self.assertContains(resp, "Ana Gómez")
+
+
+class FormatoTests(TestCase):
+    def test_pesos_numero_fecha(self):
+        from datetime import date
+        from decimal import Decimal
+
+        from . import formato
+
+        self.assertEqual(formato.pesos(Decimal("2300000000.00")), "$ 2.300.000.000")
+        self.assertEqual(formato.numero(Decimal("85.50")), "85,5")
+        self.assertEqual(formato.numero(Decimal("1200.00")), "1.200")
+        self.assertEqual(formato.numero(Decimal("0.00")), "0")
+        self.assertEqual(formato.fecha(date(2026, 10, 16)), "16/10/2026")
+
+    def test_detalle_muestra_formato_y_tildes(self):
+        usuario = get_user_model().objects.create_user("u2", password="clave-segura-123")
+        self.client.force_login(usuario)
+        p = Propietario.objects.create(nombre_completo="A", numero_identificacion="1", numero_contacto="1")
+        inm = Inmueble.objects.create(
+            propietario=p, ciudad="Bogotá", tipo_inmueble="casa", direccion="Calle 1",
+            valor_transaccion=2300000000, banos=1,
+        )
+        resp = self.client.get(reverse("inmueble_detail", args=[inm.pk]))
+        self.assertContains(resp, "$ 2.300.000.000")
+        self.assertContains(resp, "Dirección")
+        self.assertContains(resp, "Baños")
+        self.assertContains(resp, "Valor de la transacción")

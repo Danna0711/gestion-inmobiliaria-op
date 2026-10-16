@@ -1,5 +1,6 @@
 from django import forms
 
+from .formato import ETIQUETAS
 from .models import Inmueble, Propietario
 
 
@@ -17,6 +18,9 @@ class BootstrapFormMixin:
                 widget.attrs["class"] = "form-control"
             if isinstance(widget, forms.Textarea):
                 widget.attrs["rows"] = 2
+        for nombre, etiqueta in ETIQUETAS.items():
+            if nombre in self.fields:
+                self.fields[nombre].label = etiqueta
 
 
 class PropietarioForm(BootstrapFormMixin, forms.ModelForm):
