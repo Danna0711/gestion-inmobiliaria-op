@@ -150,3 +150,100 @@ class FormatoTests(TestCase):
         self.assertContains(resp, "Dirección")
         self.assertContains(resp, "Baños")
         self.assertContains(resp, "Valor de la transacción")
+
+
+import io
+import os
+import shutil
+import tempfile
+
+from django.core.files.uploadedfile import SimpleUploadedFile
+from django.test import override_settings
+from PIL import Image
+
+from .models import Fotografia
+
+MEDIA_TEMPORAL = tempfile.mkdtemp()
+
+
+def imagen_de_prueba(nombre="foto.png"):
+    buffer = io.BytesIO()
+    Image.new("RGB", (20, 20), "red").save(buffer, format="PNG")
+    return SimpleUploadedFile(nombre, buffer.getvalue(), content_type="image/png")
+
+
+@override_settings(MEDIA_ROOT=MEDIA_TEMPORAL)
+class FotografiasTests(TestCase):
+    @classmethod
+    def tearDownClass(cls):
+        super().tearDownClass()
+        shutil.rmtree(MEDIA_TEMPORAL, ignore_errors=True)
+
+    def setUp(self):
+        self.usuario = get_user_model().objects.create_user("foto", password="clave-segura-123")
+        self.client.force_login(self.usuario)
+        propietario = Propietario.objects.create(
+            nombre_completo="P", numero_identificacion="42", numero_contacto="1"
+        )
+        self.inmueble = Inmueble.objects.create(
+            propietario=propietario, ciudad="Cali", tipo_inmueble="casa",
+            direccion="Calle 5", valor_transaccion=100,
+        )
+
+    def subir(self, archivos, etiqueta=""):
+        return self.client.post(
+            reverse("foto_subir", args=[self.inmueble.pk]),
+            {"archivos": archivos, "etiqueta": etiqueta},
+        )
+
+    def test_subir_varias_fotos(self):
+        resp = self.subir([imagen_de_prueba("a.png"), imagen_de_prueba("b.png")], "Fachada")
+        self.assertRedirects(resp, reverse("inmueble_detail", args=[self.inmueble.pk]))
+        self.assertEqual(self.inmueble.fotografias.count(), 2)
+        self.assertEqual(self.inmueble.fotografias.first().etiqueta, "Fachada")
+
+    def test_detalle_muestra_galeria(self):
+        self.subir([imagen_de_prueba()], "Sala")
+        resp = self.client.get(reverse("inmueble_detail", args=[self.inmueble.pk]))
+        self.assertContains(resp, "Fotografías (1)")
+        self.assertContains(resp, "Sala")
+
+    def test_archivo_que_no_es_imagen_se_rechaza(self):
+        falso = SimpleUploadedFile("nota.txt", b"hola", content_type="text/plain")
+        self.subir([falso])
+        self.assertEqual(self.inmueble.fotografias.count(), 0)
+        resp = self.client.get(reverse("inmueble_detail", args=[self.inmueble.pk]))
+        self.assertContains(resp, "no es una imagen válida")
+
+    def test_subir_sin_archivos_se_rechaza(self):
+        self.client.post(reverse("foto_subir", args=[self.inmueble.pk]), {"etiqueta": "x"})
+        self.assertEqual(self.inmueble.fotografias.count(), 0)
+
+    def test_eliminar_borra_registro_y_archivo(self):
+        self.subir([imagen_de_prueba()])
+        foto = self.inmueble.fotografias.get()
+        ruta = foto.archivo.path
+        self.assertTrue(os.path.exists(ruta))
+        self.client.post(reverse("foto_eliminar", args=[foto.pk]))
+        self.assertFalse(Fotografia.objects.filter(pk=foto.pk).exists())
+        self.assertFalse(os.path.exists(ruta))
+
+    def test_eliminar_inmueble_borra_sus_archivos(self):
+        self.subir([imagen_de_prueba()])
+        ruta = self.inmueble.fotografias.get().archivo.path
+        self.client.post(reverse("inmueble_delete", args=[self.inmueble.pk]))
+        self.assertFalse(os.path.exists(ruta))
+
+    def test_requiere_login(self):
+        self.client.logout()
+        resp = self.subir([imagen_de_prueba()])
+        self.assertEqual(resp.status_code, 302)
+        self.assertIn("/accounts/login/", resp.url)
+        self.assertEqual(Fotografia.objects.count(), 0)
+
+    def test_eliminar_por_get_no_esta_permitido(self):
+        self.subir([imagen_de_prueba()])
+        foto = self.inmueble.fotografias.get()
+        resp = self.client.get(reverse("foto_eliminar", args=[foto.pk]))
+        self.assertEqual(resp.status_code, 405)
+        self.assertTrue(Fotografia.objects.filter(pk=foto.pk).exists())

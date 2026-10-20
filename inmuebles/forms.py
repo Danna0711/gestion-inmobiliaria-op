@@ -96,3 +96,47 @@ class InmuebleForm(BootstrapFormMixin, forms.ModelForm):
         if restantes:
             resultado.append({"titulo": "Otros datos", "campos": restantes, "tipos": ""})
         return resultado
+
+
+# ----------------------------- FOTOGRAFÍAS -----------------------------
+
+TAMANO_MAXIMO_FOTO = 8 * 1024 * 1024  # 8 MB por fotografía
+
+
+class MultipleFileInput(forms.ClearableFileInput):
+    allow_multiple_selected = True
+
+
+class MultipleImageField(forms.ImageField):
+    """Campo que acepta varias imágenes en una sola subida."""
+
+    def __init__(self, *args, **kwargs):
+        kwargs.setdefault("widget", MultipleFileInput(attrs={"accept": "image/*"}))
+        kwargs.setdefault(
+            "error_messages",
+            {
+                "invalid_image": "Uno de los archivos no es una imagen válida (usa JPG, PNG o WEBP).",
+                "required": "Selecciona al menos una fotografía.",
+            },
+        )
+        super().__init__(*args, **kwargs)
+
+    def clean(self, data, initial=None):
+        limpiar_uno = super().clean
+        if isinstance(data, (list, tuple)):
+            resultado = [limpiar_uno(d, initial) for d in data if d]
+        else:
+            resultado = [limpiar_uno(data, initial)] if data else []
+        if not resultado:
+            raise forms.ValidationError(self.error_messages["required"], code="required")
+        for archivo in resultado:
+            if archivo.size > TAMANO_MAXIMO_FOTO:
+                raise forms.ValidationError(
+                    f"La fotografía «{archivo.name}» supera el tamaño máximo de 8 MB."
+                )
+        return resultado
+
+
+class FotografiaSubirForm(forms.Form):
+    archivos = MultipleImageField(label="Fotografías")
+    etiqueta = forms.CharField(label="Etiqueta (opcional)", max_length=50, required=False)

@@ -4,13 +4,15 @@ from decimal import Decimal
 from django.contrib import messages
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.db.models import Q
+from django.shortcuts import get_object_or_404, redirect
 from django.urls import reverse_lazy
 from django.utils.http import url_has_allowed_host_and_scheme
+from django.views import View
 from django.views.generic import CreateView, DeleteView, DetailView, ListView, UpdateView
 
 from . import formato
-from .forms import InmuebleForm, PropietarioForm
-from .models import Inmueble, Propietario
+from .forms import FotografiaSubirForm, InmuebleForm, PropietarioForm
+from .models import Fotografia, Inmueble, Propietario
 
 
 # ----------------------------- INMUEBLES -----------------------------
@@ -82,6 +84,8 @@ class InmuebleDetailView(LoginRequiredMixin, DetailView):
                 valor = formato.fecha(valor)
             campos.append((formato.ETIQUETAS.get(f.name, f.verbose_name.capitalize()), valor))
         ctx["campos"] = campos
+        ctx["fotos"] = obj.fotografias.all()
+        ctx["form_foto"] = FotografiaSubirForm()
         return ctx
 
 
@@ -127,6 +131,9 @@ class InmuebleDeleteView(LoginRequiredMixin, DeleteView):
     success_url = reverse_lazy("inmueble_list")
 
     def form_valid(self, form):
+        # Borra también los archivos de las fotografías del disco
+        for foto in self.object.fotografias.all():
+            foto.archivo.delete(save=False)
         messages.success(self.request, "El inmueble se eliminó.")
         return super().form_valid(form)
 
@@ -192,3 +199,39 @@ class PropietarioUpdateView(LoginRequiredMixin, _PropietarioSuccessMixin, Update
         ctx = super().get_context_data(**kwargs)
         ctx["titulo"] = "Editar propietario"
         return ctx
+
+
+# ---------------------------- FOTOGRAFÍAS ----------------------------
+
+class FotografiaSubirView(LoginRequiredMixin, View):
+    http_method_names = ["post"]
+
+    def post(self, request, pk):
+        inmueble = get_object_or_404(Inmueble, pk=pk)
+        form = FotografiaSubirForm(request.POST, request.FILES)
+        if form.is_valid():
+            etiqueta = form.cleaned_data["etiqueta"].strip()
+            archivos = form.cleaned_data["archivos"]
+            for archivo in archivos:
+                Fotografia.objects.create(inmueble=inmueble, archivo=archivo, etiqueta=etiqueta)
+            if len(archivos) == 1:
+                messages.success(request, "Se agregó 1 fotografía.")
+            else:
+                messages.success(request, f"Se agregaron {len(archivos)} fotografías.")
+        else:
+            for errores in form.errors.values():
+                for error in errores:
+                    messages.error(request, error)
+        return redirect("inmueble_detail", pk=inmueble.pk)
+
+
+class FotografiaEliminarView(LoginRequiredMixin, View):
+    http_method_names = ["post"]
+
+    def post(self, request, pk):
+        foto = get_object_or_404(Fotografia, pk=pk)
+        inmueble_pk = foto.inmueble_id
+        foto.archivo.delete(save=False)  # borra el archivo del disco
+        foto.delete()
+        messages.success(request, "La fotografía se eliminó.")
+        return redirect("inmueble_detail", pk=inmueble_pk)
