@@ -29,7 +29,7 @@
               </div>
             </div>
           {% else %}
-            <div class="col-md-4">
+            <div class="{% if campo.widget_type == 'textarea' %}col-12{% else %}col-md-4{% endif %}">
               <label class="form-label" for="{{ campo.id_for_label }}">
                 {{ campo.label }}{% if campo.field.required %} <span class="text-danger">*</span>{% endif %}
               </label>

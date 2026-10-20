@@ -75,6 +75,7 @@ class Inmueble(models.Model):
     kva = models.DecimalField(max_digits=8, decimal_places=2, blank=True, null=True)
     altura = models.DecimalField(max_digits=6, decimal_places=2, blank=True, null=True)
     uso_suelo = models.CharField("Uso de suelo", max_length=100, blank=True, null=True)
+    informacion_adicional = models.TextField("Información adicional", blank=True, null=True)
 
     def __str__(self):
         return f"{self.get_tipo_inmueble_display()} - {self.direccion}"

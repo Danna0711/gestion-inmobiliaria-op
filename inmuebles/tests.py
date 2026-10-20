@@ -271,3 +271,45 @@ class UsoSueloTests(TestCase):
             "habitaciones": 0, "banos": 1, "garajes": 0, "depositos": 0,
         })
         self.assertEqual(Inmueble.objects.get().uso_suelo, "Comercio de ropa")
+
+
+class InformacionAdicionalTests(TestCase):
+    def setUp(self):
+        self.usuario = get_user_model().objects.create_user("ia", password="clave-segura-123")
+        self.client.force_login(self.usuario)
+        self.propietario = Propietario.objects.create(
+            nombre_completo="I", numero_identificacion="77", numero_contacto="1"
+        )
+
+    def test_seccion_disponible_para_todos_los_tipos(self):
+        from .forms import InmuebleForm
+
+        seccion = {s["titulo"]: s for s in InmuebleForm().secciones()}["Información adicional"]
+        self.assertEqual(seccion["tipos"], "")  # sin restricción de tipo
+        self.assertEqual([c.name for c in seccion["campos"]], ["informacion_adicional"])
+
+    def test_registrar_y_ver_en_detalle_para_cada_tipo(self):
+        for tipo in ("casa", "apartamento", "bodega", "local", "lote", "otro"):
+            resp = self.client.post(reverse("inmueble_create"), {
+                "propietario": self.propietario.pk, "ciudad": "Bogotá", "tipo_inmueble": tipo,
+                "estado": "disponible", "direccion": f"Dir {tipo}", "valor_transaccion": "1000",
+                "informacion_adicional": f"Nota de {tipo}\nsegunda línea",
+                "habitaciones": 0, "banos": 0, "garajes": 0, "depositos": 0,
+            })
+            inm = Inmueble.objects.get(direccion=f"Dir {tipo}")
+            self.assertRedirects(resp, reverse("inmueble_detail", args=[inm.pk]))
+            self.assertEqual(inm.informacion_adicional, f"Nota de {tipo}\nsegunda línea")
+            detalle = self.client.get(reverse("inmueble_detail", args=[inm.pk]))
+            self.assertContains(detalle, f"Nota de {tipo}")
+            self.assertContains(detalle, "<br>")  # respeta los saltos de línea
+
+    def test_es_opcional(self):
+        resp = self.client.post(reverse("inmueble_create"), {
+            "propietario": self.propietario.pk, "ciudad": "Cali", "tipo_inmueble": "casa",
+            "estado": "disponible", "direccion": "Sin nota", "valor_transaccion": "1000",
+            "habitaciones": 0, "banos": 0, "garajes": 0, "depositos": 0,
+        })
+        inm = Inmueble.objects.get(direccion="Sin nota")
+        self.assertRedirects(resp, reverse("inmueble_detail", args=[inm.pk]))
+        detalle = self.client.get(reverse("inmueble_detail", args=[inm.pk]))
+        self.assertNotContains(detalle, "Información adicional</div>")

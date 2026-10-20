@@ -67,7 +67,7 @@ class InmuebleDetailView(LoginRequiredMixin, DetailView):
         obj = self.object
         campos = []
         for f in obj._meta.fields:
-            if f.name in ("id", "propietario"):
+            if f.name in ("id", "propietario", "informacion_adicional"):
                 continue
             valor = getattr(obj, f.name)
             if valor in (None, ""):

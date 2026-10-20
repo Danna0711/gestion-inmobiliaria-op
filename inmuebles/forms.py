@@ -38,11 +38,15 @@ class InmuebleForm(BootstrapFormMixin, forms.ModelForm):
     Formulario general del inmueble (una sola ficha para todos los tipos).
     Los campos se agrupan en secciones; algunas secciones solo se muestran
     para ciertos tipos de inmueble (ver 'tipos'), tal como lo definió la
-    empresa: KVA y altura para bodegas y locales, uso de suelo solo para bodegas.
+    empresa: KVA, altura y uso de suelo para bodegas y locales. La información
+    adicional está disponible para todos los tipos.
     """
 
     # (titulo, campos, tipos en los que se muestra; None = siempre)
-    AYUDAS = {"uso_suelo": "Actividad que se realiza en el inmueble."}
+    AYUDAS = {
+        "uso_suelo": "Actividad que se realiza en el inmueble.",
+        "informacion_adicional": "Notas u observaciones del inmueble que no tengan un campo propio.",
+    }
 
     SECCIONES = [
         ("Captación", ["propietario", "id_captacion", "nombre_agente", "estado"], None),
@@ -72,6 +76,7 @@ class InmuebleForm(BootstrapFormMixin, forms.ModelForm):
             None,
         ),
         ("Matrículas inmobiliarias", ["matricula_1", "matricula_2"], None),
+        ("Información adicional", ["informacion_adicional"], None),
     ]
 
     class Meta:
@@ -84,6 +89,8 @@ class InmuebleForm(BootstrapFormMixin, forms.ModelForm):
         for nombre, ayuda in self.AYUDAS.items():
             if nombre in self.fields:
                 self.fields[nombre].help_text = ayuda
+        if "informacion_adicional" in self.fields:
+            self.fields["informacion_adicional"].widget.attrs["rows"] = 5
 
     def secciones(self):
         """Devuelve las secciones con sus campos ya enlazados al formulario."""

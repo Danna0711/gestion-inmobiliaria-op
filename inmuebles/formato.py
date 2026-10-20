@@ -49,6 +49,7 @@ ETIQUETAS = {
     "kva": "KVA (capacidad eléctrica)",
     "altura": "Altura (m)",
     "uso_suelo": "Uso de suelo",
+    "informacion_adicional": "Información adicional",
 }
 
 CAMPOS_DINERO = {"valor_transaccion", "valor_administracion", "margen_negociacion", "impuesto_predial"}
