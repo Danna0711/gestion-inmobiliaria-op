@@ -42,6 +42,8 @@ class InmuebleForm(BootstrapFormMixin, forms.ModelForm):
     """
 
     # (titulo, campos, tipos en los que se muestra; None = siempre)
+    AYUDAS = {"uso_suelo": "Actividad que se realiza en el inmueble."}
+
     SECCIONES = [
         ("Captación", ["propietario", "id_captacion", "nombre_agente", "estado"], None),
         ("Ubicación", ["ciudad", "departamento", "barrio", "direccion", "nombre_conjunto"], None),
@@ -63,8 +65,7 @@ class InmuebleForm(BootstrapFormMixin, forms.ModelForm):
             ],
             ["casa", "apartamento", "local", "otro"],
         ),
-        ("Datos de bodega y local", ["kva", "altura"], ["bodega", "local"]),
-        ("Datos de bodega", ["uso_suelo"], ["bodega"]),
+        ("Datos de bodega y local", ["kva", "altura", "uso_suelo"], ["bodega", "local"]),
         (
             "Valores",
             ["valor_transaccion", "valor_administracion", "margen_negociacion", "impuesto_predial"],
@@ -80,6 +81,9 @@ class InmuebleForm(BootstrapFormMixin, forms.ModelForm):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.aplicar_estilos()
+        for nombre, ayuda in self.AYUDAS.items():
+            if nombre in self.fields:
+                self.fields[nombre].help_text = ayuda
 
     def secciones(self):
         """Devuelve las secciones con sus campos ya enlazados al formulario."""

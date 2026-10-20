@@ -247,3 +247,27 @@ class FotografiasTests(TestCase):
         resp = self.client.get(reverse("foto_eliminar", args=[foto.pk]))
         self.assertEqual(resp.status_code, 405)
         self.assertTrue(Fotografia.objects.filter(pk=foto.pk).exists())
+
+
+class UsoSueloTests(TestCase):
+    def test_uso_suelo_se_muestra_para_bodega_y_local_no_para_otros(self):
+        from .forms import InmuebleForm
+
+        secciones = {s["titulo"]: s for s in InmuebleForm().secciones()}
+        seccion = secciones["Datos de bodega y local"]
+        self.assertEqual(set(seccion["tipos"].split(",")), {"bodega", "local"})
+        nombres = [c.name for c in seccion["campos"]]
+        self.assertIn("uso_suelo", nombres)
+        self.assertIn("kva", nombres)
+        self.assertIn("altura", nombres)
+
+    def test_registrar_local_con_uso_suelo(self):
+        usuario = get_user_model().objects.create_user("l", password="clave-segura-123")
+        self.client.force_login(usuario)
+        p = Propietario.objects.create(nombre_completo="L", numero_identificacion="8", numero_contacto="1")
+        self.client.post(reverse("inmueble_create"), {
+            "propietario": p.pk, "ciudad": "Bogotá", "tipo_inmueble": "local", "estado": "disponible",
+            "direccion": "Centro 1", "valor_transaccion": "100000000", "uso_suelo": "Comercio de ropa",
+            "habitaciones": 0, "banos": 1, "garajes": 0, "depositos": 0,
+        })
+        self.assertEqual(Inmueble.objects.get().uso_suelo, "Comercio de ropa")
