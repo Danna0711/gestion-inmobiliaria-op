@@ -16,41 +16,51 @@
 </div>
 {% endif %}
 
-<form method="get" class="card card-body shadow-sm mb-3">
+{% with f=form_busqueda %}
+<form method="get" class="card card-body shadow-sm mb-3" novalidate>
   <div class="row g-2">
-    <div class="col-md-5">
-      <input class="form-control" type="search" name="q" value="{{ q }}"
-             placeholder="Buscar por dirección, ciudad, barrio, conjunto, propietario o ID de captación">
-    </div>
-    <div class="col-md-3">
-      <select class="form-select" name="tipo">
-        <option value="">Todos los tipos</option>
-        {% for valor, nombre in tipos %}
-          <option value="{{ valor }}" {% if valor == tipo %}selected{% endif %}>{{ nombre }}</option>
-        {% endfor %}
-      </select>
-    </div>
-    <div class="col-md-2">
-      <select class="form-select" name="estado">
-        <option value="">Todos los estados</option>
-        {% for valor, nombre in estados %}
-          <option value="{{ valor }}" {% if valor == estado %}selected{% endif %}>{{ nombre }}</option>
-        {% endfor %}
-      </select>
-    </div>
+    <div class="col-md-5">{{ f.q }}</div>
+    <div class="col-md-3">{{ f.tipo }}</div>
+    <div class="col-md-2">{{ f.estado }}</div>
     <div class="col-md-2 d-grid d-md-flex gap-2">
       <button class="btn btn-outline-primary flex-fill" type="submit">Buscar</button>
       <a class="btn btn-outline-secondary" href="{% url 'inmueble_list' %}">Limpiar</a>
     </div>
   </div>
+
+  <div class="mt-2">
+    <a class="small" data-bs-toggle="collapse" href="#filtrosAvanzados" role="button"
+       aria-expanded="{% if mostrar_avanzados %}true{% else %}false{% endif %}" aria-controls="filtrosAvanzados">
+      Filtros avanzados
+    </a>
+  </div>
+
+  <div class="collapse{% if mostrar_avanzados %} show{% endif %}" id="filtrosAvanzados">
+    <div class="row g-2 mt-1">
+      {% for campo in f %}{% if campo.name in f.AVANZADOS %}
+      <div class="col-md-4 col-lg-2">
+        <label class="form-label small mb-1" for="{{ campo.id_for_label }}">{{ campo.label }}</label>
+        {{ campo }}
+        {% for error in campo.errors %}<div class="text-danger small">{{ error }}</div>{% endfor %}
+      </div>
+      {% endif %}{% endfor %}
+    </div>
+  </div>
 </form>
+{% endwith %}
+
+{% if filtros_activos %}
+<p class="text-muted small mb-2">
+  {% if total == 1 %}1 inmueble encontrado{% else %}{{ total }} inmuebles encontrados{% endif %}
+</p>
+{% endif %}
 
 <div class="card shadow-sm">
   <div class="table-responsive">
     <table class="table table-hover align-middle mb-0">
       <thead class="table-light">
         <tr>
-          <th>Tipo</th><th>Dirección</th><th>Ciudad</th><th>Propietario</th>
+          <th>Tipo</th><th>Dirección</th><th>Ciudad / barrio</th><th class="text-center">Hab.</th><th>Propietario</th>
           <th class="text-end">Valor</th><th>Estado</th><th></th>
         </tr>
       </thead>
@@ -59,7 +69,8 @@
         <tr>
           <td>{{ i.get_tipo_inmueble_display }}</td>
           <td><a href="{% url 'inmueble_detail' i.pk %}">{{ i.direccion }}</a></td>
-          <td>{{ i.ciudad }}</td>
+          <td>{{ i.ciudad }}{% if i.barrio %}<div class="text-muted small">{{ i.barrio }}</div>{% endif %}</td>
+          <td class="text-center">{{ i.habitaciones }}</td>
           <td>{{ i.propietario.nombre_completo }}</td>
           <td class="text-end">{{ i.valor_transaccion|pesos }}</td>
           <td><span class="badge text-bg-secondary">{{ i.get_estado_display }}</span></td>
@@ -68,7 +79,7 @@
           </td>
         </tr>
       {% empty %}
-        <tr><td colspan="7" class="text-center text-muted py-4">No hay inmuebles que coincidan con la búsqueda.</td></tr>
+        <tr><td colspan="8" class="text-center text-muted py-4">No hay inmuebles que coincidan con la búsqueda.</td></tr>
       {% endfor %}
       </tbody>
     </table>

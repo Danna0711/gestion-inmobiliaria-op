@@ -13,7 +13,7 @@ from django.views.generic import CreateView, DeleteView, DetailView, ListView, U
 
 from . import formato
 from .forms import (
-    DocumentoSubirForm, FotografiaSubirForm, InmuebleForm, PolizaForm, PropietarioForm,
+    BusquedaInmuebleForm, DocumentoSubirForm, FotografiaSubirForm, InmuebleForm, PolizaForm, PropietarioForm,
 )
 from .models import Documento, Fotografia, Inmueble, Poliza, Propietario
 
@@ -27,16 +27,29 @@ def polizas_en_alerta():
 # ----------------------------- INMUEBLES -----------------------------
 
 class InmuebleListView(LoginRequiredMixin, ListView):
+    """Listado con búsqueda y filtros combinados (RF14)."""
+
     model = Inmueble
     template_name = "inmuebles/inmueble_list.html"
     context_object_name = "inmuebles"
     paginate_by = 15
 
+    ORDENES = {
+        "": ["-id"],
+        "precio_asc": ["valor_transaccion", "-id"],
+        "precio_desc": ["-valor_transaccion", "-id"],
+        "habitaciones_desc": ["-habitaciones", "-id"],
+    }
+
     def get_queryset(self):
-        qs = Inmueble.objects.select_related("propietario").order_by("-id")
-        q = self.request.GET.get("q", "").strip()
-        tipo = self.request.GET.get("tipo", "")
-        estado = self.request.GET.get("estado", "")
+        self.form_busqueda = BusquedaInmuebleForm(self.request.GET or None)
+        qs = Inmueble.objects.select_related("propietario")
+        if not self.form_busqueda.is_bound:
+            return qs.order_by(*self.ORDENES[""])
+        self.form_busqueda.is_valid()
+        # Si algún filtro tiene error se muestra el mensaje y se aplican solo los filtros válidos
+        f = self.form_busqueda.cleaned_data
+        q = (f.get("q") or "").strip()
         if q:
             qs = qs.filter(
                 Q(direccion__icontains=q)
@@ -46,19 +59,32 @@ class InmuebleListView(LoginRequiredMixin, ListView):
                 | Q(id_captacion__icontains=q)
                 | Q(propietario__nombre_completo__icontains=q)
             )
-        if tipo:
-            qs = qs.filter(tipo_inmueble=tipo)
-        if estado:
-            qs = qs.filter(estado=estado)
-        return qs
+        if f.get("tipo"):
+            qs = qs.filter(tipo_inmueble=f["tipo"])
+        if f.get("estado"):
+            qs = qs.filter(estado=f["estado"])
+        if f.get("ciudad"):
+            qs = qs.filter(ciudad__iexact=f["ciudad"])
+        barrio = (f.get("barrio") or "").strip()
+        if barrio:
+            qs = qs.filter(barrio__icontains=barrio)
+        if f.get("precio_min") is not None:
+            qs = qs.filter(valor_transaccion__gte=f["precio_min"])
+        if f.get("precio_max") is not None:
+            qs = qs.filter(valor_transaccion__lte=f["precio_max"])
+        if f.get("habitaciones_min") is not None:
+            qs = qs.filter(habitaciones__gte=f["habitaciones_min"])
+        return qs.order_by(*self.ORDENES.get(f.get("orden") or "", self.ORDENES[""]))
 
     def get_context_data(self, **kwargs):
         ctx = super().get_context_data(**kwargs)
-        ctx["q"] = self.request.GET.get("q", "")
-        ctx["tipo"] = self.request.GET.get("tipo", "")
-        ctx["estado"] = self.request.GET.get("estado", "")
-        ctx["tipos"] = Inmueble.TIPO_INMUEBLE_CHOICES
-        ctx["estados"] = Inmueble.ESTADO_CHOICES
+        form = self.form_busqueda
+        ctx["form_busqueda"] = form
+        ctx["filtros_activos"] = form.is_bound and any(
+            (v or "").strip() for k, v in self.request.GET.items() if k != "page"
+        )
+        ctx["mostrar_avanzados"] = form.is_bound and (form.hay_avanzados() or bool(form.errors))
+        ctx["total"] = ctx["paginator"].count if ctx.get("paginator") else len(ctx["inmuebles"])
         # conserva los filtros al cambiar de página
         params = self.request.GET.copy()
         params.pop("page", None)

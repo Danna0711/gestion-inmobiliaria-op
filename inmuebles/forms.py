@@ -238,3 +238,75 @@ class PolizaForm(BootstrapFormMixin, forms.ModelForm):
         if valor < 0:
             raise forms.ValidationError("El valor de la póliza no puede ser negativo.")
         return valor
+
+
+# --------------------------- BÚSQUEDA Y FILTROS ---------------------------
+
+def _a_entero(texto):
+    """'$ 300.000.000' -> 300000000. Acepta puntos, comas, espacios y el signo $."""
+    limpio = texto.replace("$", "").replace(".", "").replace(",", "").replace(" ", "")
+    if not limpio.isdigit():
+        raise forms.ValidationError("Escribe solo números, por ejemplo 300.000.000.")
+    return int(limpio)
+
+
+class BusquedaInmuebleForm(forms.Form):
+    """Filtros del listado de inmuebles (RF14). Todos son opcionales y se combinan entre sí."""
+
+    ORDEN_CHOICES = [
+        ("", "Más recientes primero"),
+        ("precio_asc", "Precio: menor a mayor"),
+        ("precio_desc", "Precio: mayor a menor"),
+        ("habitaciones_desc", "Más habitaciones primero"),
+    ]
+
+    q = forms.CharField(required=False, label="Buscar")
+    tipo = forms.ChoiceField(required=False, label="Tipo",
+                             choices=[("", "Todos los tipos")] + Inmueble.TIPO_INMUEBLE_CHOICES)
+    estado = forms.ChoiceField(required=False, label="Estado",
+                               choices=[("", "Todos los estados")] + Inmueble.ESTADO_CHOICES)
+    ciudad = forms.ChoiceField(required=False, label="Ciudad")
+    barrio = forms.CharField(required=False, label="Barrio", max_length=100)
+    precio_min = forms.CharField(required=False, label="Precio desde")
+    precio_max = forms.CharField(required=False, label="Precio hasta")
+    habitaciones_min = forms.IntegerField(required=False, label="Habitaciones (mínimo)", min_value=0,
+                                          error_messages={"min_value": "Las habitaciones no pueden ser negativas.",
+                                                          "invalid": "Escribe un número entero de habitaciones."})
+    orden = forms.ChoiceField(required=False, label="Ordenar por", choices=ORDEN_CHOICES)
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        ciudades = (
+            Inmueble.objects.order_by("ciudad").values_list("ciudad", flat=True).distinct()
+        )
+        self.fields["ciudad"].choices = [("", "Todas las ciudades")] + [(c, c) for c in ciudades]
+        self.fields["q"].widget.attrs["placeholder"] = (
+            "Buscar por dirección, ciudad, barrio, conjunto, propietario o ID de captación"
+        )
+        self.fields["precio_min"].widget.attrs["placeholder"] = "Ej.: 200.000.000"
+        self.fields["precio_max"].widget.attrs["placeholder"] = "Ej.: 500.000.000"
+        for nombre, campo in self.fields.items():
+            campo.widget.attrs["class"] = (
+                "form-select" if isinstance(campo.widget, forms.Select) else "form-control"
+            )
+
+    def clean_precio_min(self):
+        texto = self.cleaned_data.get("precio_min", "").strip()
+        return _a_entero(texto) if texto else None
+
+    def clean_precio_max(self):
+        texto = self.cleaned_data.get("precio_max", "").strip()
+        return _a_entero(texto) if texto else None
+
+    def clean(self):
+        datos = super().clean()
+        minimo, maximo = datos.get("precio_min"), datos.get("precio_max")
+        if minimo is not None and maximo is not None and minimo > maximo:
+            self.add_error("precio_max", "El precio hasta debe ser mayor o igual al precio desde.")
+        return datos
+
+    # campos que se muestran en el panel de filtros avanzados
+    AVANZADOS = ("ciudad", "barrio", "precio_min", "precio_max", "habitaciones_min", "orden")
+
+    def hay_avanzados(self):
+        return any(self.data.get(n) for n in self.AVANZADOS)

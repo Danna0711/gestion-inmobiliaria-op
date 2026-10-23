@@ -648,3 +648,105 @@ class PolizaDocumentoTests(TestCase):
         ruta = self.inmueble.polizas.get().archivo.path
         self.client.post(reverse("inmueble_delete", args=[self.inmueble.pk]))
         self.assertFalse(os.path.exists(ruta))
+
+
+# ============================ BÚSQUEDA Y FILTROS ============================
+
+class BusquedaFiltrosTests(TestCase):
+    @classmethod
+    def setUpTestData(cls):
+        cls.usuario = get_user_model().objects.create_user("busca", password="clave-segura-123")
+        p1 = Propietario.objects.create(nombre_completo="Laura Ríos", numero_identificacion="901", numero_contacto="1")
+        p2 = Propietario.objects.create(nombre_completo="Mario Paz", numero_identificacion="902", numero_contacto="2")
+
+        def crear(direccion, **extra):
+            datos = dict(propietario=p1, ciudad="Bogotá", tipo_inmueble="apartamento",
+                         direccion=direccion, valor_transaccion=300000000, habitaciones=2)
+            datos.update(extra)
+            return Inmueble.objects.create(**datos)
+
+        crear("INM-A Cedritos", barrio="Cedritos", valor_transaccion=250000000, habitaciones=2)
+        crear("INM-B Chapinero", barrio="Chapinero Alto", valor_transaccion=480000000, habitaciones=3)
+        crear("INM-C Poblado", ciudad="Medellín", barrio="El Poblado", valor_transaccion=620000000,
+              habitaciones=4, propietario=p2)
+        crear("INM-D Bodega", ciudad="Medellín", barrio="Guayabal", tipo_inmueble="bodega",
+              valor_transaccion=900000000, habitaciones=0, estado="arrendado")
+
+    def setUp(self):
+        self.client.force_login(self.usuario)
+
+    def buscar(self, **filtros):
+        return self.client.get(reverse("inmueble_list"), filtros)
+
+    def direcciones(self, resp):
+        return [i.direccion.split()[0] for i in resp.context["inmuebles"]]
+
+    def test_sin_filtros_muestra_todos(self):
+        resp = self.buscar()
+        self.assertEqual(len(resp.context["inmuebles"]), 4)
+        self.assertNotContains(resp, "inmuebles encontrados")
+
+    def test_filtro_ciudad(self):
+        resp = self.buscar(ciudad="Medellín")
+        self.assertEqual(sorted(self.direcciones(resp)), ["INM-C", "INM-D"])
+        self.assertContains(resp, "2 inmuebles encontrados")
+
+    def test_lista_de_ciudades_sale_de_los_inmuebles(self):
+        resp = self.buscar()
+        opciones = [v for v, _ in resp.context["form_busqueda"].fields["ciudad"].choices]
+        self.assertEqual(opciones, ["", "Bogotá", "Medellín"])
+
+    def test_filtro_barrio_parcial(self):
+        resp = self.buscar(barrio="chapi")
+        self.assertEqual(self.direcciones(resp), ["INM-B"])
+
+    def test_rango_de_precio_con_puntos(self):
+        resp = self.buscar(precio_min="300.000.000", precio_max="$ 700.000.000")
+        self.assertEqual(sorted(self.direcciones(resp)), ["INM-B", "INM-C"])
+
+    def test_solo_precio_minimo(self):
+        resp = self.buscar(precio_min="600000000")
+        self.assertEqual(sorted(self.direcciones(resp)), ["INM-C", "INM-D"])
+
+    def test_precio_invalido_muestra_error_y_aplica_los_demas(self):
+        resp = self.buscar(precio_min="mucho", ciudad="Bogotá")
+        self.assertContains(resp, "Escribe solo números")
+        self.assertEqual(sorted(self.direcciones(resp)), ["INM-A", "INM-B"])
+
+    def test_precio_minimo_mayor_que_maximo(self):
+        resp = self.buscar(precio_min="800000000", precio_max="100000000")
+        self.assertContains(resp, "debe ser mayor o igual")
+
+    def test_habitaciones_minimas(self):
+        resp = self.buscar(habitaciones_min="3")
+        self.assertEqual(sorted(self.direcciones(resp)), ["INM-B", "INM-C"])
+
+    def test_filtros_combinados(self):
+        resp = self.buscar(ciudad="Medellín", tipo="apartamento", precio_max="700000000", habitaciones_min="4")
+        self.assertEqual(self.direcciones(resp), ["INM-C"])
+        resp = self.buscar(ciudad="Bogotá", estado="arrendado")
+        self.assertEqual(self.direcciones(resp), [])
+        self.assertContains(resp, "No hay inmuebles que coincidan")
+
+    def test_busqueda_por_texto_sigue_funcionando(self):
+        resp = self.buscar(q="Mario")
+        self.assertEqual(self.direcciones(resp), ["INM-C"])
+
+    def test_ordenar_por_precio(self):
+        resp = self.buscar(orden="precio_asc")
+        self.assertEqual(self.direcciones(resp), ["INM-A", "INM-B", "INM-C", "INM-D"])
+        resp = self.buscar(orden="precio_desc")
+        self.assertEqual(self.direcciones(resp), ["INM-D", "INM-C", "INM-B", "INM-A"])
+
+    def test_ordenar_por_habitaciones(self):
+        resp = self.buscar(orden="habitaciones_desc")
+        self.assertEqual(self.direcciones(resp)[0], "INM-C")
+
+    def test_panel_avanzado_abierto_si_hay_filtros_avanzados(self):
+        self.assertFalse(self.buscar(tipo="casa").context["mostrar_avanzados"])
+        self.assertTrue(self.buscar(barrio="Cedritos").context["mostrar_avanzados"])
+
+    def test_paginacion_conserva_filtros(self):
+        resp = self.buscar(ciudad="Medellín", page="1")
+        self.assertIn("ciudad=Medell", resp.context["filtros_url"])
+        self.assertNotIn("page", resp.context["filtros_url"])
