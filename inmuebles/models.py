@@ -114,6 +114,7 @@ class Poliza(models.Model):
     valor = models.DecimalField(max_digits=12, decimal_places=2)
     fecha_vencimiento = models.DateField()
     numero_contrato = models.CharField(max_length=50, blank=True, null=True)
+    archivo = models.FileField(upload_to="inmuebles/polizas/", blank=True, null=True)
 
     def __str__(self):
         return f"{self.nombre_poliza} - {self.inmueble}"

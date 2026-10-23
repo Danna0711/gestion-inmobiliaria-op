@@ -50,6 +50,14 @@ ETIQUETAS = {
     "altura": "Altura (m)",
     "uso_suelo": "Uso de suelo",
     "informacion_adicional": "Información adicional",
+    # Documento
+    "tipo_documento": "Tipo de documento",
+    "archivo": "Archivo",
+    # Póliza
+    "nombre_poliza": "Nombre de la póliza",
+    "valor": "Valor de la póliza",
+    "fecha_vencimiento": "Fecha de vencimiento",
+    "numero_contrato": "Número de contrato",
 }
 
 CAMPOS_DINERO = {"valor_transaccion", "valor_administracion", "margen_negociacion", "impuesto_predial"}
@@ -79,3 +87,24 @@ def numero(valor):
 def fecha(valor):
     """date(2026, 10, 16) -> '16/10/2026'"""
     return valor.strftime("%d/%m/%Y") if valor else ""
+
+
+# ------------------------------ PÓLIZAS ------------------------------
+
+DIAS_AVISO_POLIZA = 30  # una póliza "por vencer" es la que vence en 30 días o menos
+
+
+def estado_poliza(fecha_vencimiento, hoy):
+    """Devuelve (estado, dias, texto). estado: 'vencida', 'por_vencer' o 'vigente'.
+
+    dias es la diferencia entre la fecha de vencimiento y hoy (negativo si ya venció).
+    """
+    dias = (fecha_vencimiento - hoy).days
+    if dias < 0:
+        n = -dias
+        return "vencida", dias, "Vencida hace 1 día" if n == 1 else f"Vencida hace {n} días"
+    if dias == 0:
+        return "por_vencer", dias, "Vence hoy"
+    if dias <= DIAS_AVISO_POLIZA:
+        return "por_vencer", dias, "Vence en 1 día" if dias == 1 else f"Vence en {dias} días"
+    return "vigente", dias, "Vigente"

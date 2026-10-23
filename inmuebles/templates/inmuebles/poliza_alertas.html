@@ -1,0 +1,63 @@
+{% extends "inmuebles/base.html" %}
+{% load formatos %}
+{% block title %}Pólizas · OP Agente Inmobiliario{% endblock %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-3">
+  <h1 class="h3 mb-0">{% if todas %}Todas las pólizas{% else %}Pólizas vencidas o por vencer{% endif %}</h1>
+  {% if todas %}
+    <a class="btn btn-outline-secondary" href="{% url 'poliza_alertas' %}">Ver solo alertas</a>
+  {% else %}
+    <a class="btn btn-outline-secondary" href="?todas=1">Ver todas las pólizas</a>
+  {% endif %}
+</div>
+
+{% if not todas %}
+<p class="text-muted">Se muestran las pólizas ya vencidas y las que vencen en {{ dias_aviso }} días o menos.</p>
+{% endif %}
+
+<div class="card shadow-sm">
+  <div class="table-responsive">
+    <table class="table table-hover align-middle mb-0">
+      <thead class="table-light">
+        <tr>
+          <th>Inmueble</th><th>Póliza</th><th>N.º de contrato</th>
+          <th class="text-end">Valor</th><th>Vencimiento</th><th>Estado</th>
+        </tr>
+      </thead>
+      <tbody>
+      {% for p in polizas %}
+        <tr>
+          <td><a href="{% url 'inmueble_detail' p.inmueble.pk %}">{{ p.inmueble.direccion }}</a>
+              <div class="text-muted small">{{ p.inmueble.propietario.nombre_completo }}</div></td>
+          <td>{{ p.nombre_poliza }}</td>
+          <td>{{ p.numero_contrato|default:"—" }}</td>
+          <td class="text-end">{{ p.valor|pesos }}</td>
+          <td>{{ p.fecha_vencimiento|date:"d/m/Y" }}</td>
+          <td>
+            <span class="badge {% if p.estado == 'vencida' %}text-bg-danger{% elif p.estado == 'por_vencer' %}text-bg-warning{% else %}text-bg-success{% endif %}">{{ p.estado_texto }}</span>
+          </td>
+        </tr>
+      {% empty %}
+        <tr><td colspan="6" class="text-center text-muted py-4">
+          {% if todas %}Aún no hay pólizas registradas.{% else %}No hay pólizas vencidas ni por vencer.{% endif %}
+        </td></tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+{% if is_paginated %}
+<nav class="mt-3">
+  <ul class="pagination justify-content-center">
+    {% if page_obj.has_previous %}
+      <li class="page-item"><a class="page-link" href="?{% if todas %}todas=1&{% endif %}page={{ page_obj.previous_page_number }}">Anterior</a></li>
+    {% endif %}
+    <li class="page-item disabled"><span class="page-link">Página {{ page_obj.number }} de {{ page_obj.paginator.num_pages }}</span></li>
+    {% if page_obj.has_next %}
+      <li class="page-item"><a class="page-link" href="?{% if todas %}todas=1&{% endif %}page={{ page_obj.next_page_number }}">Siguiente</a></li>
+    {% endif %}
+  </ul>
+</nav>
+{% endif %}
+{% endblock %}

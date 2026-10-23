@@ -1,4 +1,5 @@
 {% extends "inmuebles/base.html" %}
+{% load formatos %}
 {% block title %}{{ inmueble }} · OP Agente Inmobiliario{% endblock %}
 {% block content %}
 <div class="d-flex justify-content-between align-items-center mb-3">
@@ -88,7 +89,99 @@
   </div>
 </div>
 
-<div class="alert alert-info">
-  Las secciones de documentos y pólizas se habilitarán en las siguientes actividades del cronograma.
+<div class="card shadow-sm mb-3">
+  <div class="card-header fw-semibold">Documentos legales ({{ documentos|length }})</div>
+  <div class="card-body">
+    <form method="post" action="{% url 'documento_subir' inmueble.pk %}" enctype="multipart/form-data" class="row g-2 align-items-end mb-3">
+      {% csrf_token %}
+      <div class="col-md-4">
+        <label class="form-label" for="id_tipo_documento">Tipo de documento</label>
+        <select class="form-select" name="tipo_documento" id="id_tipo_documento" required>
+          {% for valor, nombre in form_doc.fields.tipo_documento.choices %}
+            <option value="{{ valor }}">{{ nombre }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="col-md-6">
+        <label class="form-label" for="id_documentos">Archivos (PDF, Word, Excel, JPG o PNG; puedes elegir varios)</label>
+        <input class="form-control" type="file" name="archivos" id="id_documentos"
+               accept=".pdf,.doc,.docx,.xls,.xlsx,.jpg,.jpeg,.png" multiple required>
+      </div>
+      <div class="col-md-2 d-grid">
+        <button class="btn btn-primary" type="submit">Subir</button>
+      </div>
+    </form>
+
+    {% if documentos %}
+    <ul class="list-group">
+      {% for doc in documentos %}
+      <li class="list-group-item d-flex justify-content-between align-items-center">
+        <div>
+          <span class="badge text-bg-secondary me-2">{{ doc.get_tipo_documento_display }}</span>
+          <a href="{{ doc.archivo.url }}" target="_blank" rel="noopener">{{ doc.archivo.name|basename }}</a>
+        </div>
+        <form method="post" action="{% url 'documento_eliminar' doc.pk %}"
+              onsubmit="return confirm('¿Eliminar este documento?');" class="mb-0">
+          {% csrf_token %}
+          <button class="btn btn-sm btn-outline-danger" type="submit">Eliminar</button>
+        </form>
+      </li>
+      {% endfor %}
+    </ul>
+    {% else %}
+      <p class="text-muted mb-0">Este inmueble aún no tiene documentos.</p>
+    {% endif %}
+  </div>
+</div>
+
+<div class="card shadow-sm mb-3">
+  <div class="card-header fw-semibold d-flex justify-content-between align-items-center">
+    <span>Pólizas ({{ polizas|length }})</span>
+    <a class="btn btn-sm btn-primary" href="{% url 'poliza_create' inmueble.pk %}">+ Registrar póliza</a>
+  </div>
+  <div class="card-body">
+    {% if polizas_alerta %}
+      <div class="alert alert-warning">
+        {% if polizas_alerta == 1 %}Hay 1 póliza vencida o próxima a vencer.{% else %}Hay {{ polizas_alerta }} pólizas vencidas o próximas a vencer.{% endif %}
+      </div>
+    {% endif %}
+    {% if polizas %}
+    <div class="table-responsive">
+      <table class="table align-middle mb-0">
+        <thead class="table-light">
+          <tr><th>Póliza</th><th>N.º de contrato</th><th class="text-end">Valor</th><th>Vencimiento</th><th>Estado</th><th>Documento</th><th></th></tr>
+        </thead>
+        <tbody>
+        {% for p in polizas %}
+          <tr>
+            <td>{{ p.obj.nombre_poliza }}</td>
+            <td>{{ p.obj.numero_contrato|default:"—" }}</td>
+            <td class="text-end">{{ p.obj.valor|pesos }}</td>
+            <td>{{ p.obj.fecha_vencimiento|date:"d/m/Y" }}</td>
+            <td>
+              <span class="badge {% if p.estado == 'vencida' %}text-bg-danger{% elif p.estado == 'por_vencer' %}text-bg-warning{% else %}text-bg-success{% endif %}">{{ p.texto }}</span>
+            </td>
+            <td>
+              {% if p.obj.archivo %}
+                <a href="{{ p.obj.archivo.url }}" target="_blank" rel="noopener">{{ p.obj.archivo.name|basename }}</a>
+              {% else %}<span class="text-muted">—</span>{% endif %}
+            </td>
+            <td class="text-end text-nowrap">
+              <a class="btn btn-sm btn-outline-primary" href="{% url 'poliza_update' p.obj.pk %}">Editar</a>
+              <form method="post" action="{% url 'poliza_delete' p.obj.pk %}" class="d-inline"
+                    onsubmit="return confirm('¿Eliminar esta póliza?');">
+                {% csrf_token %}
+                <button class="btn btn-sm btn-outline-danger" type="submit">Eliminar</button>
+              </form>
+            </td>
+          </tr>
+        {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% else %}
+      <p class="text-muted mb-0">Este inmueble aún no tiene pólizas registradas.</p>
+    {% endif %}
+  </div>
 </div>
 {% endblock %}

@@ -1,7 +1,7 @@
 from django import forms
 
 from .formato import ETIQUETAS
-from .models import Inmueble, Propietario
+from .models import Documento, Inmueble, Poliza, Propietario
 
 
 class BootstrapFormMixin:
@@ -151,3 +151,90 @@ class MultipleImageField(forms.ImageField):
 class FotografiaSubirForm(forms.Form):
     archivos = MultipleImageField(label="Fotografías")
     etiqueta = forms.CharField(label="Etiqueta (opcional)", max_length=50, required=False)
+
+
+# ------------------------------ DOCUMENTOS ------------------------------
+
+TAMANO_MAXIMO_DOCUMENTO = 15 * 1024 * 1024  # 15 MB por documento
+EXTENSIONES_DOCUMENTO = ("pdf", "doc", "docx", "xls", "xlsx", "jpg", "jpeg", "png")
+
+
+class MultipleDocumentField(forms.FileField):
+    """Campo que acepta varios documentos (PDF, Word, Excel o imagen) en una sola subida."""
+
+    def __init__(self, *args, **kwargs):
+        accept = ",".join("." + e for e in EXTENSIONES_DOCUMENTO)
+        kwargs.setdefault("widget", MultipleFileInput(attrs={"accept": accept}))
+        kwargs.setdefault("error_messages", {"required": "Selecciona al menos un documento."})
+        super().__init__(*args, **kwargs)
+
+    def clean(self, data, initial=None):
+        limpiar_uno = super().clean
+        if isinstance(data, (list, tuple)):
+            resultado = [limpiar_uno(d, initial) for d in data if d]
+        else:
+            resultado = [limpiar_uno(data, initial)] if data else []
+        if not resultado:
+            raise forms.ValidationError(self.error_messages["required"], code="required")
+        for archivo in resultado:
+            extension = archivo.name.rsplit(".", 1)[-1].lower() if "." in archivo.name else ""
+            if extension not in EXTENSIONES_DOCUMENTO:
+                raise forms.ValidationError(
+                    f"«{archivo.name}» no es un formato permitido (usa PDF, Word, Excel, JPG o PNG)."
+                )
+            if archivo.size > TAMANO_MAXIMO_DOCUMENTO:
+                raise forms.ValidationError(
+                    f"El documento «{archivo.name}» supera el tamaño máximo de 15 MB."
+                )
+        return resultado
+
+
+class DocumentoSubirForm(forms.Form):
+    tipo_documento = forms.ChoiceField(
+        label="Tipo de documento",
+        choices=Documento.TIPO_DOCUMENTO_CHOICES,
+        error_messages={"required": "Selecciona el tipo de documento."},
+    )
+    archivos = MultipleDocumentField(label="Documentos")
+
+
+# ------------------------------- PÓLIZAS -------------------------------
+
+class PolizaForm(BootstrapFormMixin, forms.ModelForm):
+    class Meta:
+        model = Poliza
+        exclude = ["inmueble"]
+        widgets = {
+            "fecha_vencimiento": forms.DateInput(attrs={"type": "date"}, format="%Y-%m-%d"),
+            "archivo": forms.ClearableFileInput(
+                attrs={"accept": ".pdf,.doc,.docx,.xls,.xlsx,.jpg,.jpeg,.png"}
+            ),
+        }
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.aplicar_estilos()
+        self.fields["archivo"].label = "Documento de la póliza (opcional)"
+        self.fields["archivo"].help_text = "PDF, Word, Excel, JPG o PNG, hasta 15 MB."
+
+    def clean_archivo(self):
+        archivo = self.cleaned_data.get("archivo")
+        # Si no se subió uno nuevo (o se marcó "borrar"), no hay nada que validar
+        if not archivo or not hasattr(archivo, "size") or not hasattr(archivo, "content_type"):
+            return archivo
+        extension = archivo.name.rsplit(".", 1)[-1].lower() if "." in archivo.name else ""
+        if extension not in EXTENSIONES_DOCUMENTO:
+            raise forms.ValidationError(
+                f"«{archivo.name}» no es un formato permitido (usa PDF, Word, Excel, JPG o PNG)."
+            )
+        if archivo.size > TAMANO_MAXIMO_DOCUMENTO:
+            raise forms.ValidationError(
+                f"El documento «{archivo.name}» supera el tamaño máximo de 15 MB."
+            )
+        return archivo
+
+    def clean_valor(self):
+        valor = self.cleaned_data["valor"]
+        if valor < 0:
+            raise forms.ValidationError("El valor de la póliza no puede ser negativo.")
+        return valor

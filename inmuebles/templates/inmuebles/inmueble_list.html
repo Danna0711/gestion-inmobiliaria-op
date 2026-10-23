@@ -7,6 +7,15 @@
   <a class="btn btn-primary" href="{% url 'inmueble_create' %}">+ Registrar inmueble</a>
 </div>
 
+{% if polizas_alerta %}
+<div class="alert alert-warning d-flex justify-content-between align-items-center">
+  <span>
+    {% if polizas_alerta == 1 %}Hay 1 póliza vencida o próxima a vencer.{% else %}Hay {{ polizas_alerta }} pólizas vencidas o próximas a vencer.{% endif %}
+  </span>
+  <a class="btn btn-sm btn-outline-dark" href="{% url 'poliza_alertas' %}">Ver pólizas</a>
+</div>
+{% endif %}
+
 <form method="get" class="card card-body shadow-sm mb-3">
   <div class="row g-2">
     <div class="col-md-5">

@@ -1,0 +1,26 @@
+{% extends "inmuebles/base.html" %}
+{% block title %}{{ titulo }} · OP Agente Inmobiliario{% endblock %}
+{% block content %}
+<div class="card shadow-sm col-md-8 col-lg-6 mx-auto">
+  <div class="card-body">
+    <h1 class="h4 mb-1">{{ titulo }}</h1>
+    <p class="text-muted small mb-3">Inmueble: {{ inmueble }}</p>
+    <form method="post" enctype="multipart/form-data" novalidate>
+      {% csrf_token %}
+      {% for campo in form %}
+        <div class="mb-3">
+          <label class="form-label" for="{{ campo.id_for_label }}">
+            {{ campo.label }}{% if campo.field.required %} <span class="text-danger">*</span>{% endif %}
+          </label>
+          {{ campo }}
+          {% for error in campo.errors %}<div class="text-danger small">{{ error }}</div>{% endfor %}
+        </div>
+      {% endfor %}
+      <div class="d-flex gap-2">
+        <button class="btn btn-primary" type="submit">Guardar</button>
+        <a class="btn btn-outline-secondary" href="{% url 'inmueble_detail' inmueble.pk %}">Cancelar</a>
+      </div>
+    </form>
+  </div>
+</div>
+{% endblock %}

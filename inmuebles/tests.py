@@ -313,3 +313,338 @@ class InformacionAdicionalTests(TestCase):
         self.assertRedirects(resp, reverse("inmueble_detail", args=[inm.pk]))
         detalle = self.client.get(reverse("inmueble_detail", args=[inm.pk]))
         self.assertNotContains(detalle, "Información adicional</div>")
+
+
+# ======================= DOCUMENTOS LEGALES Y PÓLIZAS =======================
+
+from datetime import date, timedelta
+
+from django.utils import timezone
+
+from .models import Documento, Poliza
+
+
+def pdf_de_prueba(nombre="escritura.pdf", contenido=b"%PDF-1.4 prueba"):
+    return SimpleUploadedFile(nombre, contenido, content_type="application/pdf")
+
+
+@override_settings(MEDIA_ROOT=MEDIA_TEMPORAL)
+class DocumentosTests(TestCase):
+    def setUp(self):
+        self.usuario = get_user_model().objects.create_user("docs", password="clave-segura-123")
+        self.client.force_login(self.usuario)
+        propietario = Propietario.objects.create(
+            nombre_completo="P", numero_identificacion="77", numero_contacto="1"
+        )
+        self.inmueble = Inmueble.objects.create(
+            propietario=propietario, ciudad="Cali", tipo_inmueble="casa",
+            direccion="Calle 9", valor_transaccion=100,
+        )
+
+    def subir(self, archivos, tipo="escritura"):
+        return self.client.post(
+            reverse("documento_subir", args=[self.inmueble.pk]),
+            {"tipo_documento": tipo, "archivos": archivos},
+        )
+
+    def test_subir_varios_documentos(self):
+        resp = self.subir([pdf_de_prueba("a.pdf"), pdf_de_prueba("b.pdf")], "planos")
+        self.assertRedirects(resp, reverse("inmueble_detail", args=[self.inmueble.pk]))
+        self.assertEqual(self.inmueble.documentos.count(), 2)
+        self.assertEqual(self.inmueble.documentos.first().tipo_documento, "planos")
+
+    def test_detalle_lista_documentos(self):
+        self.subir([pdf_de_prueba("mi_escritura.pdf")])
+        resp = self.client.get(reverse("inmueble_detail", args=[self.inmueble.pk]))
+        self.assertContains(resp, "Documentos legales (1)")
+        self.assertContains(resp, "Escritura")
+        self.assertContains(resp, "mi_escritura")
+
+    def test_formato_no_permitido_se_rechaza(self):
+        malo = SimpleUploadedFile("virus.exe", b"MZ", content_type="application/octet-stream")
+        self.subir([malo])
+        self.assertEqual(self.inmueble.documentos.count(), 0)
+        resp = self.client.get(reverse("inmueble_detail", args=[self.inmueble.pk]))
+        self.assertContains(resp, "no es un formato permitido")
+
+    def test_tipo_invalido_se_rechaza(self):
+        self.subir([pdf_de_prueba()], tipo="inventado")
+        self.assertEqual(self.inmueble.documentos.count(), 0)
+
+    def test_subir_sin_archivos_se_rechaza(self):
+        self.client.post(
+            reverse("documento_subir", args=[self.inmueble.pk]), {"tipo_documento": "otro"}
+        )
+        self.assertEqual(self.inmueble.documentos.count(), 0)
+
+    def test_documento_demasiado_grande(self):
+        from . import forms
+        original = forms.TAMANO_MAXIMO_DOCUMENTO
+        forms.TAMANO_MAXIMO_DOCUMENTO = 5
+        try:
+            self.subir([pdf_de_prueba(contenido=b"123456789")])
+        finally:
+            forms.TAMANO_MAXIMO_DOCUMENTO = original
+        self.assertEqual(self.inmueble.documentos.count(), 0)
+
+    def test_eliminar_borra_registro_y_archivo(self):
+        self.subir([pdf_de_prueba()])
+        doc = self.inmueble.documentos.get()
+        ruta = doc.archivo.path
+        self.assertTrue(os.path.exists(ruta))
+        resp = self.client.post(reverse("documento_eliminar", args=[doc.pk]))
+        self.assertRedirects(resp, reverse("inmueble_detail", args=[self.inmueble.pk]))
+        self.assertFalse(Documento.objects.filter(pk=doc.pk).exists())
+        self.assertFalse(os.path.exists(ruta))
+
+    def test_eliminar_por_get_no_esta_permitido(self):
+        self.subir([pdf_de_prueba()])
+        doc = self.inmueble.documentos.get()
+        resp = self.client.get(reverse("documento_eliminar", args=[doc.pk]))
+        self.assertEqual(resp.status_code, 405)
+        self.assertTrue(Documento.objects.filter(pk=doc.pk).exists())
+
+    def test_requiere_login(self):
+        self.client.logout()
+        resp = self.subir([pdf_de_prueba()])
+        self.assertEqual(resp.status_code, 302)
+        self.assertEqual(Documento.objects.count(), 0)
+
+    def test_eliminar_inmueble_borra_archivos_de_documentos(self):
+        self.subir([pdf_de_prueba()])
+        ruta = self.inmueble.documentos.get().archivo.path
+        self.client.post(reverse("inmueble_delete", args=[self.inmueble.pk]))
+        self.assertEqual(Documento.objects.count(), 0)
+        self.assertFalse(os.path.exists(ruta))
+
+
+class PolizasTests(TestCase):
+    def setUp(self):
+        self.usuario = get_user_model().objects.create_user("pol", password="clave-segura-123")
+        self.client.force_login(self.usuario)
+        propietario = Propietario.objects.create(
+            nombre_completo="Prop Uno", numero_identificacion="88", numero_contacto="1"
+        )
+        self.inmueble = Inmueble.objects.create(
+            propietario=propietario, ciudad="Cali", tipo_inmueble="casa",
+            direccion="Carrera 7", valor_transaccion=100,
+        )
+        self.hoy = timezone.localdate()
+
+    def nueva(self, dias, nombre="Todo riesgo"):
+        return Poliza.objects.create(
+            inmueble=self.inmueble, nombre_poliza=nombre, valor=1000000,
+            fecha_vencimiento=self.hoy + timedelta(days=dias),
+        )
+
+    def datos(self, **extra):
+        d = {
+            "nombre_poliza": "Incendio", "valor": "2500000",
+            "fecha_vencimiento": (self.hoy + timedelta(days=200)).isoformat(),
+            "numero_contrato": "AB-123",
+        }
+        d.update(extra)
+        return d
+
+    # --- regla de estado ---
+    def test_estados_segun_dias(self):
+        from . import formato
+        hoy = date(2026, 10, 22)
+        casos = {
+            date(2026, 10, 21): ("vencida", "Vencida hace 1 día"),
+            date(2026, 10, 12): ("vencida", "Vencida hace 10 días"),
+            date(2026, 10, 22): ("por_vencer", "Vence hoy"),
+            date(2026, 10, 23): ("por_vencer", "Vence en 1 día"),
+            date(2026, 11, 21): ("por_vencer", "Vence en 30 días"),   # límite: aún avisa
+            date(2026, 11, 22): ("vigente", "Vigente"),               # 31 días: no avisa
+        }
+        for fecha_v, (estado, texto) in casos.items():
+            e, _, t = formato.estado_poliza(fecha_v, hoy)
+            self.assertEqual((e, t), (estado, texto), fecha_v)
+
+    # --- registro ---
+    def test_formulario_se_muestra(self):
+        resp = self.client.get(reverse("poliza_create", args=[self.inmueble.pk]))
+        self.assertEqual(resp.status_code, 200)
+        self.assertContains(resp, "Registrar póliza")
+        self.assertContains(resp, 'type="date"')
+
+    def test_registrar_poliza(self):
+        resp = self.client.post(reverse("poliza_create", args=[self.inmueble.pk]), self.datos())
+        self.assertRedirects(resp, reverse("inmueble_detail", args=[self.inmueble.pk]))
+        poliza = self.inmueble.polizas.get()
+        self.assertEqual(poliza.nombre_poliza, "Incendio")
+        self.assertEqual(poliza.numero_contrato, "AB-123")
+
+    def test_registrar_sin_numero_de_contrato(self):
+        self.client.post(
+            reverse("poliza_create", args=[self.inmueble.pk]), self.datos(numero_contrato="")
+        )
+        self.assertEqual(self.inmueble.polizas.count(), 1)
+
+    def test_registro_invalido_no_guarda(self):
+        resp = self.client.post(
+            reverse("poliza_create", args=[self.inmueble.pk]), {"nombre_poliza": "X"}
+        )
+        self.assertEqual(resp.status_code, 200)
+        self.assertEqual(Poliza.objects.count(), 0)
+
+    def test_valor_negativo_se_rechaza(self):
+        resp = self.client.post(
+            reverse("poliza_create", args=[self.inmueble.pk]), self.datos(valor="-5")
+        )
+        self.assertEqual(Poliza.objects.count(), 0)
+        self.assertContains(resp, "no puede ser negativo")
+
+    def test_editar_poliza(self):
+        p = self.nueva(100)
+        resp = self.client.post(reverse("poliza_update", args=[p.pk]), self.datos(nombre_poliza="Nueva"))
+        self.assertRedirects(resp, reverse("inmueble_detail", args=[self.inmueble.pk]))
+        p.refresh_from_db()
+        self.assertEqual(p.nombre_poliza, "Nueva")
+
+    def test_eliminar_poliza(self):
+        p = self.nueva(100)
+        resp = self.client.post(reverse("poliza_delete", args=[p.pk]))
+        self.assertRedirects(resp, reverse("inmueble_detail", args=[self.inmueble.pk]))
+        self.assertEqual(Poliza.objects.count(), 0)
+        self.assertEqual(self.client.get(reverse("poliza_delete", args=[999])).status_code, 405)
+
+    # --- alertas ---
+    def test_detalle_muestra_estado_y_alerta(self):
+        self.nueva(10, "Por vencer")
+        self.nueva(-3, "Ya vencida")
+        self.nueva(90, "Vigente larga")
+        resp = self.client.get(reverse("inmueble_detail", args=[self.inmueble.pk]))
+        self.assertContains(resp, "Pólizas (3)")
+        self.assertContains(resp, "Vence en 10 días")
+        self.assertContains(resp, "Vencida hace 3 días")
+        self.assertContains(resp, "Hay 2 pólizas vencidas o próximas a vencer.")
+
+    def test_pagina_de_alertas_solo_muestra_las_que_corresponden(self):
+        self.nueva(5, "Poliza proxima")
+        self.nueva(-1, "Poliza vencida")
+        self.nueva(60, "Poliza lejana")
+        resp = self.client.get(reverse("poliza_alertas"))
+        self.assertContains(resp, "Poliza proxima")
+        self.assertContains(resp, "Poliza vencida")
+        self.assertNotContains(resp, "Poliza lejana")
+        resp = self.client.get(reverse("poliza_alertas") + "?todas=1")
+        self.assertContains(resp, "Poliza lejana")
+
+    def test_alertas_ordenadas_por_vencimiento(self):
+        self.nueva(20, "BBB")
+        self.nueva(-5, "AAA")
+        resp = self.client.get(reverse("poliza_alertas"))
+        contenido = resp.content.decode()
+        self.assertLess(contenido.index("AAA"), contenido.index("BBB"))
+
+    def test_listado_muestra_aviso_si_hay_alertas(self):
+        resp = self.client.get(reverse("inmueble_list"))
+        self.assertNotContains(resp, "vencida o próxima a vencer")
+        self.nueva(7)
+        resp = self.client.get(reverse("inmueble_list"))
+        self.assertContains(resp, "Hay 1 póliza vencida o próxima a vencer.")
+
+    def test_sin_alertas_muestra_mensaje(self):
+        resp = self.client.get(reverse("poliza_alertas"))
+        self.assertContains(resp, "No hay pólizas vencidas ni por vencer.")
+
+    def test_requiere_login(self):
+        self.client.logout()
+        for nombre, args in (("poliza_alertas", []), ("poliza_create", [self.inmueble.pk])):
+            resp = self.client.get(reverse(nombre, args=args))
+            self.assertEqual(resp.status_code, 302)
+            self.assertIn("/accounts/login/", resp.url)
+
+
+@override_settings(MEDIA_ROOT=MEDIA_TEMPORAL)
+class PolizaDocumentoTests(TestCase):
+    def setUp(self):
+        self.usuario = get_user_model().objects.create_user("polarch", password="clave-segura-123")
+        self.client.force_login(self.usuario)
+        propietario = Propietario.objects.create(
+            nombre_completo="P", numero_identificacion="55", numero_contacto="1"
+        )
+        self.inmueble = Inmueble.objects.create(
+            propietario=propietario, ciudad="Cali", tipo_inmueble="casa",
+            direccion="Calle 3", valor_transaccion=100,
+        )
+
+    def datos(self, **extra):
+        d = {
+            "nombre_poliza": "Incendio", "valor": "1000",
+            "fecha_vencimiento": (timezone.localdate() + timedelta(days=90)).isoformat(),
+            "numero_contrato": "X1",
+        }
+        d.update(extra)
+        return d
+
+    def crear(self, archivo=None):
+        datos = self.datos()
+        if archivo:
+            datos["archivo"] = archivo
+        return self.client.post(reverse("poliza_create", args=[self.inmueble.pk]), datos)
+
+    def test_registrar_poliza_con_documento(self):
+        resp = self.crear(pdf_de_prueba("poliza.pdf"))
+        self.assertRedirects(resp, reverse("inmueble_detail", args=[self.inmueble.pk]))
+        poliza = self.inmueble.polizas.get()
+        self.assertTrue(poliza.archivo.name.endswith(".pdf"))
+        detalle = self.client.get(reverse("inmueble_detail", args=[self.inmueble.pk]))
+        self.assertContains(detalle, "poliza")
+
+    def test_documento_es_opcional(self):
+        self.crear()
+        self.assertEqual(self.inmueble.polizas.count(), 1)
+        self.assertFalse(self.inmueble.polizas.get().archivo)
+
+    def test_formato_no_permitido_se_rechaza(self):
+        malo = SimpleUploadedFile("virus.exe", b"MZ", content_type="application/octet-stream")
+        resp = self.crear(malo)
+        self.assertEqual(self.inmueble.polizas.count(), 0)
+        self.assertContains(resp, "no es un formato permitido")
+
+    def test_reemplazar_documento_borra_el_anterior(self):
+        self.crear(pdf_de_prueba("uno.pdf"))
+        poliza = self.inmueble.polizas.get()
+        ruta_vieja = poliza.archivo.path
+        datos = self.datos(archivo=pdf_de_prueba("dos.pdf"))
+        self.client.post(reverse("poliza_update", args=[poliza.pk]), datos)
+        poliza.refresh_from_db()
+        self.assertNotEqual(poliza.archivo.path, ruta_vieja)
+        self.assertTrue(os.path.exists(poliza.archivo.path))
+        self.assertFalse(os.path.exists(ruta_vieja))
+
+    def test_editar_sin_subir_archivo_conserva_el_actual(self):
+        self.crear(pdf_de_prueba("uno.pdf"))
+        poliza = self.inmueble.polizas.get()
+        ruta = poliza.archivo.path
+        self.client.post(reverse("poliza_update", args=[poliza.pk]), self.datos(nombre_poliza="Otro nombre"))
+        poliza.refresh_from_db()
+        self.assertEqual(poliza.nombre_poliza, "Otro nombre")
+        self.assertEqual(poliza.archivo.path, ruta)
+        self.assertTrue(os.path.exists(ruta))
+
+    def test_quitar_documento_borra_el_archivo(self):
+        self.crear(pdf_de_prueba("uno.pdf"))
+        poliza = self.inmueble.polizas.get()
+        ruta = poliza.archivo.path
+        self.client.post(reverse("poliza_update", args=[poliza.pk]), self.datos(**{"archivo-clear": "on"}))
+        poliza.refresh_from_db()
+        self.assertFalse(poliza.archivo)
+        self.assertFalse(os.path.exists(ruta))
+
+    def test_eliminar_poliza_borra_el_archivo(self):
+        self.crear(pdf_de_prueba())
+        poliza = self.inmueble.polizas.get()
+        ruta = poliza.archivo.path
+        self.client.post(reverse("poliza_delete", args=[poliza.pk]))
+        self.assertEqual(Poliza.objects.count(), 0)
+        self.assertFalse(os.path.exists(ruta))
+
+    def test_eliminar_inmueble_borra_archivos_de_polizas(self):
+        self.crear(pdf_de_prueba())
+        ruta = self.inmueble.polizas.get().archivo.path
+        self.client.post(reverse("inmueble_delete", args=[self.inmueble.pk]))
+        self.assertFalse(os.path.exists(ruta))
