@@ -1,0 +1,34 @@
+{# Una oferta comercial dentro del formulario del inmueble #}
+<div class="card mb-3 oferta" {% if oculta %}style="display:none"{% endif %}>
+  <div class="card-header d-flex justify-content-between align-items-center">
+    <span class="fw-semibold titulo-oferta">Oferta</span>
+    {% if puede_quitar %}
+      <button type="button" class="btn btn-sm btn-outline-danger quitar-oferta">Quitar oferta</button>
+    {% endif %}
+  </div>
+  <div class="card-body">
+    {{ f.id }}
+    <div class="d-none">{{ f.DELETE }}</div>
+    {% for error in f.non_field_errors %}<div class="alert alert-danger py-1">{{ error }}</div>{% endfor %}
+    <div class="row g-3">
+      {% for campo in f.visible_fields %}{% if campo.name != "DELETE" %}
+        {% if campo.field.widget.input_type == 'checkbox' %}
+          <div class="col-md-4 d-flex align-items-end">
+            <div class="form-check">
+              {{ campo }}
+              <label class="form-check-label" for="{{ campo.id_for_label }}">{{ campo.label }}</label>
+            </div>
+          </div>
+        {% else %}
+          <div class="{% if campo.widget_type == 'textarea' %}col-md-6{% elif campo.name == 'titulo' %}col-md-6{% else %}col-md-3{% endif %}">
+            <label class="form-label" for="{{ campo.id_for_label }}">
+              {{ campo.label }}{% if campo.field.required %} <span class="text-danger">*</span>{% endif %}
+            </label>
+            {{ campo }}
+            {% for error in campo.errors %}<div class="text-danger small">{{ error }}</div>{% endfor %}
+          </div>
+        {% endif %}
+      {% endif %}{% endfor %}
+    </div>
+  </div>
+</div>

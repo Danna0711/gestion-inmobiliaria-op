@@ -5,6 +5,18 @@ from django.urls import reverse
 from .models import Inmueble, Propietario
 
 
+def oferta(valor, modalidad="venta", indice=0, total=1, iniciales=0, **extra):
+    """Datos de formulario para enviar ofertas comerciales junto con el inmueble."""
+    datos = {
+        "ofertas-TOTAL_FORMS": str(total), "ofertas-INITIAL_FORMS": str(iniciales),
+        "ofertas-MIN_NUM_FORMS": "1", "ofertas-MAX_NUM_FORMS": "1000",
+        f"ofertas-{indice}-modalidad": modalidad, f"ofertas-{indice}-valor": str(valor),
+    }
+    for clave, valor_extra in extra.items():
+        datos[f"ofertas-{indice}-{clave}"] = valor_extra
+    return datos
+
+
 class ModuloInmueblesTests(TestCase):
     @classmethod
     def setUpTestData(cls):
@@ -41,7 +53,7 @@ class ModuloInmueblesTests(TestCase):
     def test_registrar_inmueble(self):
         resp = self.client.post(reverse("inmueble_create"), {
             "propietario": self.propietario.pk, "ciudad": "Medellín", "tipo_inmueble": "bodega",
-            "estado": "disponible", "direccion": "Zona Industrial 5", "valor_transaccion": "850000000",
+            "estado": "disponible", "direccion": "Zona Industrial 5", **oferta("850000000"),
             "kva": "150", "altura": "8", "uso_suelo": "Industrial",
             "habitaciones": 0, "banos": 1, "garajes": 0, "depositos": 0,
         })
@@ -85,6 +97,7 @@ class ModuloInmueblesTests(TestCase):
         self.assertEqual(resp.status_code, 200)
         datos = resp.context["form"].initial.copy()
         datos.update({"direccion": "Nueva dirección 1", "propietario": self.propietario.pk})
+        datos.update(oferta("300000000"))
         datos = {k: v for k, v in datos.items() if v is not None and v is not False}
         self.client.post(reverse("inmueble_update", args=[inm.pk]), datos)
         inm.refresh_from_db()
@@ -267,7 +280,7 @@ class UsoSueloTests(TestCase):
         p = Propietario.objects.create(nombre_completo="L", numero_identificacion="8", numero_contacto="1")
         self.client.post(reverse("inmueble_create"), {
             "propietario": p.pk, "ciudad": "Bogotá", "tipo_inmueble": "local", "estado": "disponible",
-            "direccion": "Centro 1", "valor_transaccion": "100000000", "uso_suelo": "Comercio de ropa",
+            "direccion": "Centro 1", **oferta("100000000"), "uso_suelo": "Comercio de ropa",
             "habitaciones": 0, "banos": 1, "garajes": 0, "depositos": 0,
         })
         self.assertEqual(Inmueble.objects.get().uso_suelo, "Comercio de ropa")
@@ -292,7 +305,7 @@ class InformacionAdicionalTests(TestCase):
         for tipo in ("casa", "apartamento", "bodega", "local", "lote", "otro"):
             resp = self.client.post(reverse("inmueble_create"), {
                 "propietario": self.propietario.pk, "ciudad": "Bogotá", "tipo_inmueble": tipo,
-                "estado": "disponible", "direccion": f"Dir {tipo}", "valor_transaccion": "1000",
+                "estado": "disponible", "direccion": f"Dir {tipo}", **oferta("1000"),
                 "informacion_adicional": f"Nota de {tipo}\nsegunda línea",
                 "habitaciones": 0, "banos": 0, "garajes": 0, "depositos": 0,
             })
@@ -306,7 +319,7 @@ class InformacionAdicionalTests(TestCase):
     def test_es_opcional(self):
         resp = self.client.post(reverse("inmueble_create"), {
             "propietario": self.propietario.pk, "ciudad": "Cali", "tipo_inmueble": "casa",
-            "estado": "disponible", "direccion": "Sin nota", "valor_transaccion": "1000",
+            "estado": "disponible", "direccion": "Sin nota", **oferta("1000"),
             "habitaciones": 0, "banos": 0, "garajes": 0, "depositos": 0,
         })
         inm = Inmueble.objects.get(direccion="Sin nota")
@@ -652,6 +665,8 @@ class PolizaDocumentoTests(TestCase):
 
 # ============================ BÚSQUEDA Y FILTROS ============================
 
+from .models import OfertaComercial
+
 class BusquedaFiltrosTests(TestCase):
     @classmethod
     def setUpTestData(cls):
@@ -663,7 +678,12 @@ class BusquedaFiltrosTests(TestCase):
             datos = dict(propietario=p1, ciudad="Bogotá", tipo_inmueble="apartamento",
                          direccion=direccion, valor_transaccion=300000000, habitaciones=2)
             datos.update(extra)
-            return Inmueble.objects.create(**datos)
+            inmueble = Inmueble.objects.create(**datos)
+            OfertaComercial.objects.create(
+                inmueble=inmueble, valor=inmueble.valor_transaccion,
+                modalidad="arriendo" if inmueble.estado == "arrendado" else "venta",
+            )
+            return inmueble
 
         crear("INM-A Cedritos", barrio="Cedritos", valor_transaccion=250000000, habitaciones=2)
         crear("INM-B Chapinero", barrio="Chapinero Alto", valor_transaccion=480000000, habitaciones=3)
@@ -944,3 +964,237 @@ class MarcaDeAguaTests(TestCase):
         pdf = self.generar(MARCA_DE_AGUA=Path("no_existe.png"))
         self.assertTrue(pdf.startswith(b"%PDF"))
         self.assertEqual(self.imagenes_por_pagina(pdf), self.imagenes_por_pagina(self.generar(OPACIDAD_MARCA=0)))
+
+
+# ======================== OFERTAS COMERCIALES Y BODEGA ========================
+
+class OfertasComercialesTests(TestCase):
+    def setUp(self):
+        self.usuario = get_user_model().objects.create_user("ofe", password="clave-segura-123")
+        self.client.force_login(self.usuario)
+        self.propietario = Propietario.objects.create(
+            nombre_completo="Dueño", numero_identificacion="4040", numero_contacto="1"
+        )
+
+    def base(self, **extra):
+        datos = {
+            "propietario": self.propietario.pk, "ciudad": "Bogotá", "tipo_inmueble": "bodega",
+            "estado": "disponible", "direccion": "Parque Industrial Santodomingo",
+            "habitaciones": 0, "banos": 2, "garajes": 0, "depositos": 0,
+        }
+        datos.update(extra)
+        return datos
+
+    def dos_ofertas(self):
+        """Como la presentación de la bodega: opción 1 en arriendo con IVA y opción 2."""
+        datos = self.base()
+        datos.update(oferta("157500000", "arriendo", indice=0, total=2, titulo="Opción 1",
+                            aplica_iva="on", valor_administracion="2500000", area="4000",
+                            descripcion="4.000 m2 con estantería", ventajas="2 muelles"))
+        datos.update(oferta("74000000", "arriendo", indice=1, total=2, titulo="Opción 2",
+                            aplica_iva="on", valor_administracion="2500000"))
+        return datos
+
+    def crear(self, datos):
+        return self.client.post(reverse("inmueble_create"), datos)
+
+    # --- formulario ---
+    def test_formulario_tiene_ofertas_y_boton(self):
+        resp = self.client.get(reverse("inmueble_create"))
+        self.assertContains(resp, "Ofertas comerciales")
+        self.assertContains(resp, "+ Agregar oferta")
+        self.assertContains(resp, 'name="ofertas-TOTAL_FORMS"')
+        self.assertContains(resp, 'name="ofertas-0-valor"')
+        self.assertContains(resp, "ofertas-__prefix__-valor")  # plantilla para el botón
+        self.assertNotContains(resp, 'name="valor_transaccion"')
+
+    def test_registrar_con_una_oferta(self):
+        resp = self.crear({**self.base(), **oferta("450000000")})
+        inm = Inmueble.objects.get()
+        self.assertRedirects(resp, reverse("inmueble_detail", args=[inm.pk]))
+        self.assertEqual(inm.ofertas.count(), 1)
+        self.assertEqual(inm.valor_transaccion, 450000000)
+
+    def test_registrar_con_dos_ofertas(self):
+        self.crear(self.dos_ofertas())
+        inm = Inmueble.objects.get()
+        self.assertEqual([o.titulo for o in inm.ofertas.all()], ["Opción 1", "Opción 2"])
+        self.assertEqual(inm.valor_transaccion, 157500000)  # valor principal = primera oferta
+        self.assertEqual(inm.valor_administracion, 2500000)
+
+    def test_oferta_obligatoria_vacia(self):
+        resp = self.crear({**self.base(), **oferta("")})
+        self.assertEqual(Inmueble.objects.count(), 0)
+        self.assertContains(resp, "Este campo es obligatorio", status_code=200)
+
+    def test_sin_ninguna_oferta(self):
+        datos = self.base()
+        datos.update({"ofertas-TOTAL_FORMS": "0", "ofertas-INITIAL_FORMS": "0",
+                      "ofertas-MIN_NUM_FORMS": "1", "ofertas-MAX_NUM_FORMS": "1000"})
+        resp = self.crear(datos)
+        self.assertEqual(Inmueble.objects.count(), 0)
+        self.assertContains(resp, "Registra al menos una oferta comercial.")
+
+    def test_valor_cero_se_rechaza(self):
+        resp = self.crear({**self.base(), **oferta("0")})
+        self.assertEqual(Inmueble.objects.count(), 0)
+        self.assertContains(resp, "El valor debe ser mayor que cero.")
+
+    def test_oferta_quitada_con_el_boton_no_se_guarda(self):
+        datos = self.dos_ofertas()
+        datos["ofertas-1-DELETE"] = "on"
+        self.crear(datos)
+        self.assertEqual(Inmueble.objects.get().ofertas.count(), 1)
+
+    # --- edición ---
+    def datos_edicion(self, inm, **cambios):
+        datos = self.base()
+        ofertas = list(inm.ofertas.all())
+        datos.update({"ofertas-TOTAL_FORMS": str(len(ofertas)), "ofertas-INITIAL_FORMS": str(len(ofertas)),
+                      "ofertas-MIN_NUM_FORMS": "1", "ofertas-MAX_NUM_FORMS": "1000"})
+        for i, o in enumerate(ofertas):
+            datos.update({f"ofertas-{i}-id": str(o.pk), f"ofertas-{i}-modalidad": o.modalidad,
+                          f"ofertas-{i}-valor": str(o.valor)})
+        datos.update(cambios)
+        return datos
+
+    def test_editar_valor_de_la_primera_oferta_actualiza_el_inmueble(self):
+        self.crear(self.dos_ofertas())
+        inm = Inmueble.objects.get()
+        self.client.post(reverse("inmueble_update", args=[inm.pk]),
+                         self.datos_edicion(inm, **{"ofertas-0-valor": "160000000"}))
+        inm.refresh_from_db()
+        self.assertEqual(inm.valor_transaccion, 160000000)
+
+    def test_eliminar_una_oferta_al_editar(self):
+        self.crear(self.dos_ofertas())
+        inm = Inmueble.objects.get()
+        self.client.post(reverse("inmueble_update", args=[inm.pk]),
+                         self.datos_edicion(inm, **{"ofertas-1-DELETE": "on"}))
+        self.assertEqual(inm.ofertas.count(), 1)
+
+    def test_no_se_pueden_eliminar_todas(self):
+        self.crear(self.dos_ofertas())
+        inm = Inmueble.objects.get()
+        resp = self.client.post(reverse("inmueble_update", args=[inm.pk]),
+                                self.datos_edicion(inm, **{"ofertas-0-DELETE": "on", "ofertas-1-DELETE": "on"}))
+        self.assertContains(resp, "Registra al menos una oferta comercial.")
+        self.assertEqual(inm.ofertas.count(), 2)
+
+    def test_editar_inmueble_antiguo_sin_ofertas_obliga_a_crear_una(self):
+        inm = Inmueble.objects.create(propietario=self.propietario, ciudad="Cali", tipo_inmueble="casa",
+                                      direccion="Antiguo", valor_transaccion=100)
+        resp = self.client.get(reverse("inmueble_update", args=[inm.pk]))
+        self.assertContains(resp, 'name="ofertas-0-valor"')  # aparece un formulario de oferta vacío
+
+    # --- detalle y listado ---
+    def test_detalle_muestra_ofertas_con_iva(self):
+        self.crear(self.dos_ofertas())
+        inm = Inmueble.objects.get()
+        resp = self.client.get(reverse("inmueble_detail", args=[inm.pk]))
+        self.assertContains(resp, "Ofertas comerciales (2)")
+        self.assertContains(resp, "Canon mensual")
+        self.assertContains(resp, "$ 157.500.000")
+        self.assertContains(resp, "$ 29.925.000")   # IVA 19 % de 157.500.000
+        self.assertContains(resp, "$ 14.060.000")   # IVA 19 % de 74.000.000 (igual a la presentación)
+        self.assertContains(resp, "4.000 m²")
+
+    def test_listado_indica_varias_ofertas(self):
+        self.crear(self.dos_ofertas())
+        self.assertContains(self.client.get(reverse("inmueble_list")), "2 ofertas")
+
+    # --- búsqueda ---
+    def test_buscar_por_modalidad_y_precio_de_cualquier_oferta(self):
+        self.crear(self.dos_ofertas())
+        lista = reverse("inmueble_list")
+        self.assertEqual(len(self.client.get(lista, {"modalidad": "arriendo"}).context["inmuebles"]), 1)
+        self.assertEqual(len(self.client.get(lista, {"modalidad": "venta"}).context["inmuebles"]), 0)
+        # solo la opción 2 (74 millones) cae en este rango
+        resp = self.client.get(lista, {"precio_min": "70.000.000", "precio_max": "80.000.000"})
+        self.assertEqual(len(resp.context["inmuebles"]), 1)
+
+    def test_la_misma_oferta_debe_cumplir_modalidad_y_precio(self):
+        self.crear({**self.base(), **oferta("74000000", "venta", total=2),
+                    "ofertas-1-modalidad": "arriendo", "ofertas-1-valor": "5000000"})
+        resp = self.client.get(reverse("inmueble_list"), {"modalidad": "arriendo", "precio_min": "70000000"})
+        self.assertEqual(len(resp.context["inmuebles"]), 0)
+
+    # --- ficha PDF ---
+    def html_ficha(self, inm):
+        from django.template.loader import render_to_string
+        from . import ficha
+        ctx = ficha.contexto_ficha(inm)
+        ctx.update({"foto_principal": None, "filas_miniaturas": []})
+        return render_to_string("inmuebles/ficha_pdf.html", ctx)
+
+    def test_ficha_con_varias_ofertas(self):
+        self.crear(self.dos_ofertas())
+        html = self.html_ficha(Inmueble.objects.get())
+        self.assertIn("Desde:", html)
+        self.assertIn("$ 74.000.000", html)
+        self.assertIn("2 opciones disponibles", html)
+        self.assertIn("Ofertas comerciales", html)
+        self.assertIn("Opción 1 (Arriendo)", html)
+        self.assertIn("Ventajas destacadas", html)
+        self.assertIn("4.000 m2", html)
+        self.assertIn("$ 29.925.000", html)
+
+    def test_ficha_con_una_oferta(self):
+        self.crear({**self.base(), **oferta("450000000", "venta")})
+        html = self.html_ficha(Inmueble.objects.get())
+        self.assertIn("Precio de venta:", html)
+        self.assertIn("Oferta comercial", html)
+        self.assertNotIn("IVA 19 %", html)
+
+    def test_ficha_pdf_se_genera_con_ofertas(self):
+        self.crear(self.dos_ofertas())
+        inm = Inmueble.objects.get()
+        resp = self.client.get(reverse("inmueble_ficha_pdf", args=[inm.pk]))
+        self.assertTrue(resp.content.startswith(b"%PDF"))
+
+    # --- campos de bodega ---
+    def test_campos_de_bodega_en_formulario_detalle_y_ficha(self):
+        from .forms import InmuebleForm
+        seccion = {s["titulo"]: s for s in InmuebleForm().secciones()}["Datos de bodega y local"]
+        nombres = [c.name for c in seccion["campos"]]
+        for campo in ["area_libre", "area_administrativa", "capacidad_piso", "muelles", "entradas_nivel"]:
+            self.assertIn(campo, nombres)
+        self.crear({**self.base(area_libre="8000", area_administrativa="800", capacidad_piso="8",
+                                muelles="16", entradas_nivel="2", kva="50", altura="11"),
+                    **oferta("205000000", "arriendo")})
+        inm = Inmueble.objects.get()
+        self.assertEqual(inm.muelles, 16)
+        detalle = self.client.get(reverse("inmueble_detail", args=[inm.pk]))
+        self.assertContains(detalle, "Capacidad de piso (ton/m²)")
+        self.assertContains(detalle, "8.000")
+        html = self.html_ficha(inm)
+        self.assertIn("Muelles", html)
+        self.assertIn("Entradas a nivel", html)
+        self.assertIn("Capacidad de piso (ton/m2)", html)
+
+    def test_valores_internos_no_estan_en_la_ficha(self):
+        from .forms import InmuebleForm
+        seccion = {s["titulo"]: s for s in InmuebleForm().secciones()}["Valores internos"]
+        self.assertEqual([c.name for c in seccion["campos"]], ["margen_negociacion", "impuesto_predial"])
+
+
+class MigracionOfertasTests(TestCase):
+    def test_crea_oferta_inicial_con_el_valor_existente(self):
+        import importlib
+        from django.apps import apps
+        modulo = [m for m in __import__("inmuebles.migrations", fromlist=["*"]).__path__]
+        import pkgutil
+        nombre = next(n for _, n, _ in pkgutil.iter_modules(modulo) if n.endswith("ofertas_y_datos_bodega"))
+        migracion = importlib.import_module(f"inmuebles.migrations.{nombre}")
+        p = Propietario.objects.create(nombre_completo="M", numero_identificacion="1", numero_contacto="1")
+        arrendado = Inmueble.objects.create(propietario=p, ciudad="C", tipo_inmueble="bodega", direccion="A",
+                                            valor_transaccion=205000000, valor_administracion=5000000,
+                                            estado="arrendado")
+        vendible = Inmueble.objects.create(propietario=p, ciudad="C", tipo_inmueble="casa", direccion="B",
+                                           valor_transaccion=450000000)
+        migracion.crear_oferta_inicial(apps, None)
+        migracion.crear_oferta_inicial(apps, None)  # ejecutarla dos veces no duplica
+        o1 = arrendado.ofertas.get()
+        self.assertEqual((o1.modalidad, o1.valor, o1.valor_administracion, o1.titulo),
+                         ("arriendo", 205000000, 5000000, "Oferta 1"))
+        self.assertEqual(vendible.ofertas.get().modalidad, "venta")

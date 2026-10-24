@@ -72,7 +72,7 @@
           <td>{{ i.ciudad }}{% if i.barrio %}<div class="text-muted small">{{ i.barrio }}</div>{% endif %}</td>
           <td class="text-center">{{ i.habitaciones }}</td>
           <td>{{ i.propietario.nombre_completo }}</td>
-          <td class="text-end">{{ i.valor_transaccion|pesos }}</td>
+          <td class="text-end">{{ i.valor_transaccion|pesos }}{% if i.num_ofertas > 1 %}<div class="text-muted small">{{ i.num_ofertas }} ofertas</div>{% endif %}</td>
           <td><span class="badge text-bg-secondary">{{ i.get_estado_display }}</span></td>
           <td class="text-end text-nowrap">
             <a class="btn btn-sm btn-outline-primary" href="{% url 'inmueble_update' i.pk %}">Editar</a>

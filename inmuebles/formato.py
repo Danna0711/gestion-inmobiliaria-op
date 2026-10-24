@@ -50,6 +50,11 @@ ETIQUETAS = {
     "altura": "Altura (m)",
     "uso_suelo": "Uso de suelo",
     "informacion_adicional": "Información adicional",
+    "area_libre": "Área libre (m²)",
+    "area_administrativa": "Área administrativa (m²)",
+    "capacidad_piso": "Capacidad de piso (ton/m²)",
+    "muelles": "Muelles",
+    "entradas_nivel": "Entradas a nivel",
     # Documento
     "tipo_documento": "Tipo de documento",
     "archivo": "Archivo",
@@ -108,3 +113,40 @@ def estado_poliza(fecha_vencimiento, hoy):
     if dias <= DIAS_AVISO_POLIZA:
         return "por_vencer", dias, "Vence en 1 día" if dias == 1 else f"Vence en {dias} días"
     return "vigente", dias, "Vigente"
+
+
+# ------------------------- OFERTAS COMERCIALES -------------------------
+
+TASA_IVA = Decimal("0.19")
+
+ETIQUETAS_OFERTA = {
+    "titulo": "Nombre de la oferta",
+    "modalidad": "Modalidad",
+    "area": "Área ofrecida (m²)",
+    "valor": "Precio de venta o canon mensual",
+    "aplica_iva": "Aplica IVA (19 %)",
+    "valor_administracion": "Administración",
+    "descripcion": "Descripción general",
+    "ventajas": "Ventajas destacadas",
+}
+
+
+def resumen_oferta(oferta, numero):
+    """Datos de una oferta listos para mostrar en el detalle y en la ficha PDF."""
+    es_arriendo = oferta.modalidad == "arriendo"
+    iva = (oferta.valor * TASA_IVA).quantize(Decimal("1")) if oferta.aplica_iva else None
+    return {
+        "titulo": oferta.titulo or f"Oferta {numero}",
+        "modalidad": oferta.get_modalidad_display(),
+        "area": numero_m2(oferta.area),
+        "etiqueta_valor": "Canon mensual" if es_arriendo else "Precio de venta",
+        "valor": pesos(oferta.valor),
+        "iva": pesos(iva) if iva is not None else "",
+        "administracion": pesos(oferta.valor_administracion),
+        "descripcion": oferta.descripcion or "",
+        "ventajas": oferta.ventajas or "",
+    }
+
+
+def numero_m2(valor):
+    return f"{numero(valor)} m²" if valor not in (None, "") else ""

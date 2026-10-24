@@ -3,7 +3,8 @@ from decimal import Decimal
 
 from django.contrib import messages
 from django.contrib.auth.mixins import LoginRequiredMixin
-from django.db.models import Q
+from django.db import transaction
+from django.db.models import Count, Exists, OuterRef, Q
 from django.http import HttpResponse
 from django.shortcuts import get_object_or_404, redirect
 from django.utils.text import slugify
@@ -15,9 +16,10 @@ from django.views.generic import CreateView, DeleteView, DetailView, ListView, U
 
 from . import ficha, formato
 from .forms import (
-    BusquedaInmuebleForm, DocumentoSubirForm, FotografiaSubirForm, InmuebleForm, PolizaForm, PropietarioForm,
+    BusquedaInmuebleForm, DocumentoSubirForm, FotografiaSubirForm, InmuebleForm, OfertaFormSet,
+    PolizaForm, PropietarioForm,
 )
-from .models import Documento, Fotografia, Inmueble, Poliza, Propietario
+from .models import Documento, Fotografia, Inmueble, OfertaComercial, Poliza, Propietario
 
 
 def polizas_en_alerta():
@@ -45,7 +47,7 @@ class InmuebleListView(LoginRequiredMixin, ListView):
 
     def get_queryset(self):
         self.form_busqueda = BusquedaInmuebleForm(self.request.GET or None)
-        qs = Inmueble.objects.select_related("propietario")
+        qs = Inmueble.objects.select_related("propietario").annotate(num_ofertas=Count("ofertas"))
         if not self.form_busqueda.is_bound:
             return qs.order_by(*self.ORDENES[""])
         self.form_busqueda.is_valid()
@@ -70,10 +72,18 @@ class InmuebleListView(LoginRequiredMixin, ListView):
         barrio = (f.get("barrio") or "").strip()
         if barrio:
             qs = qs.filter(barrio__icontains=barrio)
+        # Precio y modalidad se buscan en las ofertas: basta con que UNA oferta cumpla todo
+        condiciones = {}
+        if f.get("modalidad"):
+            condiciones["modalidad"] = f["modalidad"]
         if f.get("precio_min") is not None:
-            qs = qs.filter(valor_transaccion__gte=f["precio_min"])
+            condiciones["valor__gte"] = f["precio_min"]
         if f.get("precio_max") is not None:
-            qs = qs.filter(valor_transaccion__lte=f["precio_max"])
+            condiciones["valor__lte"] = f["precio_max"]
+        if condiciones:
+            qs = qs.filter(
+                Exists(OfertaComercial.objects.filter(inmueble=OuterRef("pk"), **condiciones))
+            )
         if f.get("habitaciones_min") is not None:
             qs = qs.filter(habitaciones__gte=f["habitaciones_min"])
         return qs.order_by(*self.ORDENES.get(f.get("orden") or "", self.ORDENES[""]))
@@ -104,8 +114,12 @@ class InmuebleDetailView(LoginRequiredMixin, DetailView):
         ctx = super().get_context_data(**kwargs)
         obj = self.object
         campos = []
+        tiene_ofertas = obj.ofertas.exists()
         for f in obj._meta.fields:
             if f.name in ("id", "propietario", "informacion_adicional"):
+                continue
+            # Con ofertas registradas, los valores se muestran en la tarjeta de ofertas
+            if tiene_ofertas and f.name in ("valor_transaccion", "valor_administracion"):
                 continue
             valor = getattr(obj, f.name)
             if valor in (None, ""):
@@ -123,6 +137,7 @@ class InmuebleDetailView(LoginRequiredMixin, DetailView):
             campos.append((formato.ETIQUETAS.get(f.name, f.verbose_name.capitalize()), valor))
         ctx["campos"] = campos
         ctx["fotos"] = obj.fotografias.all()
+        ctx["ofertas"] = [formato.resumen_oferta(o, n) for n, o in enumerate(obj.ofertas.all(), 1)]
         ctx["form_foto"] = FotografiaSubirForm()
         ctx["documentos"] = obj.documentos.order_by("tipo_documento", "id")
         ctx["form_doc"] = DocumentoSubirForm()
@@ -136,40 +151,58 @@ class InmuebleDetailView(LoginRequiredMixin, DetailView):
         return ctx
 
 
-class InmuebleCreateView(LoginRequiredMixin, CreateView):
+class _InmuebleConOfertasMixin:
+    """Guarda el inmueble junto con sus ofertas comerciales (mínimo una)."""
+
     model = Inmueble
     form_class = InmuebleForm
     template_name = "inmuebles/inmueble_form.html"
+    mensaje_exito = ""
 
     def get_success_url(self):
         return reverse_lazy("inmueble_detail", args=[self.object.pk])
 
-    def form_valid(self, form):
-        messages.success(self.request, "El inmueble se registró correctamente.")
-        return super().form_valid(form)
+    def get_ofertas(self, data=None):
+        instancia = self.object if self.object is not None else Inmueble()
+        return OfertaFormSet(data, instance=instancia, prefix="ofertas")
 
     def get_context_data(self, **kwargs):
         ctx = super().get_context_data(**kwargs)
-        ctx["titulo"] = "Registrar inmueble"
+        ctx.setdefault("ofertas", self.get_ofertas())
+        ctx["titulo"] = self.titulo
         return ctx
 
+    def post(self, request, *args, **kwargs):
+        self.object = self.get_object() if self.es_edicion else None
+        form = self.get_form()
+        ofertas = self.get_ofertas(request.POST)
+        if form.is_valid() and ofertas.is_valid():
+            return self.guardar(form, ofertas)
+        return self.render_to_response(self.get_context_data(form=form, ofertas=ofertas))
 
-class InmuebleUpdateView(LoginRequiredMixin, UpdateView):
-    model = Inmueble
-    form_class = InmuebleForm
-    template_name = "inmuebles/inmueble_form.html"
+    @transaction.atomic
+    def guardar(self, form, ofertas):
+        # El valor principal del inmueble (listado y orden por precio) es el de la primera oferta
+        primera = ofertas.ofertas_vigentes()[0].cleaned_data
+        form.instance.valor_transaccion = primera["valor"]
+        form.instance.valor_administracion = primera.get("valor_administracion")
+        self.object = form.save()
+        ofertas.instance = self.object
+        ofertas.save()
+        messages.success(self.request, self.mensaje_exito)
+        return redirect(self.get_success_url())
 
-    def get_success_url(self):
-        return reverse_lazy("inmueble_detail", args=[self.object.pk])
 
-    def form_valid(self, form):
-        messages.success(self.request, "Los cambios se guardaron correctamente.")
-        return super().form_valid(form)
+class InmuebleCreateView(LoginRequiredMixin, _InmuebleConOfertasMixin, CreateView):
+    es_edicion = False
+    titulo = "Registrar inmueble"
+    mensaje_exito = "El inmueble se registró correctamente."
 
-    def get_context_data(self, **kwargs):
-        ctx = super().get_context_data(**kwargs)
-        ctx["titulo"] = "Editar inmueble"
-        return ctx
+
+class InmuebleUpdateView(LoginRequiredMixin, _InmuebleConOfertasMixin, UpdateView):
+    es_edicion = True
+    titulo = "Editar inmueble"
+    mensaje_exito = "Los cambios se guardaron correctamente."
 
 
 class InmuebleDeleteView(LoginRequiredMixin, DeleteView):

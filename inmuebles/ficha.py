@@ -57,7 +57,13 @@ SECCIONES_FICHA = [
             "parqueadero_visitantes", "areas_comunes", "club_house",
         ],
     ),
-    ("Datos técnicos", ["kva", "altura", "uso_suelo"]),
+    (
+        "Datos técnicos",
+        [
+            "kva", "altura", "uso_suelo", "area_libre", "area_administrativa",
+            "capacidad_piso", "muelles", "entradas_nivel",
+        ],
+    ),
 ]
 
 # Campos que nunca deben aparecer en la ficha (se verifica en las pruebas)
@@ -105,11 +111,40 @@ def contexto_ficha(inmueble, usuario=None):
             secciones.append({"titulo": titulo, "filas": filas})
 
     lugar = ", ".join(p for p in [inmueble.barrio, inmueble.ciudad] if p)
+
+    # Ofertas comerciales (la fuente del PDF no tiene ², por eso m2)
+    registros = list(inmueble.ofertas.all())
+    ofertas = []
+    for n, oferta in enumerate(registros, 1):
+        resumen = formato.resumen_oferta(oferta, n)
+        resumen["area"] = resumen["area"].replace("m²", "m2")
+        ofertas.append(resumen)
+
+    # Precio del encabezado
+    if len(registros) == 1:
+        etiqueta_precio = ofertas[0]["etiqueta_valor"]
+        valor = ofertas[0]["valor"]
+        administracion = ofertas[0]["administracion"]
+        nota_precio = ""
+    elif len(registros) > 1:
+        etiqueta_precio = "Desde"
+        valor = formato.pesos(min(o.valor for o in registros))
+        administracion = ""
+        nota_precio = f"{len(registros)} opciones disponibles"
+    else:  # inmueble sin ofertas registradas: se usa el valor guardado en el inmueble
+        etiqueta_precio = ""
+        valor = formato.pesos(inmueble.valor_transaccion)
+        administracion = formato.pesos(inmueble.valor_administracion)
+        nota_precio = ""
+
     return {
         "inmueble": inmueble,
         "titulo": f"{inmueble.get_tipo_inmueble_display()} en {lugar}",
-        "valor": formato.pesos(inmueble.valor_transaccion),
-        "administracion": formato.pesos(inmueble.valor_administracion),
+        "etiqueta_precio": etiqueta_precio,
+        "valor": valor,
+        "administracion": administracion,
+        "nota_precio": nota_precio,
+        "ofertas": ofertas,
         "secciones": secciones,
         "informacion_adicional": inmueble.informacion_adicional or "",
         "fotos": list(inmueble.fotografias.all()[:MAX_FOTOS]),

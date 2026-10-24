@@ -37,6 +37,36 @@
   </div>
 </div>
 
+<div class="card shadow-sm mb-3">
+  <div class="card-header fw-semibold">Ofertas comerciales ({{ ofertas|length }})</div>
+  <div class="card-body">
+    {% if ofertas %}
+    <div class="row g-3">
+      {% for o in ofertas %}
+      <div class="col-md-6 col-lg-4">
+        <div class="border rounded p-3 h-100">
+          <div class="d-flex justify-content-between align-items-start mb-2">
+            <span class="fw-semibold">{{ o.titulo }}</span>
+            <span class="badge text-bg-secondary">{{ o.modalidad }}</span>
+          </div>
+          {% if o.area %}<div class="small text-muted mb-2">Área ofrecida: {{ o.area }}</div>{% endif %}
+          <table class="table table-sm mb-2">
+            <tr><td>{{ o.etiqueta_valor }}</td><td class="text-end fw-semibold">{{ o.valor }}</td></tr>
+            {% if o.iva %}<tr><td>IVA 19 %</td><td class="text-end">{{ o.iva }}</td></tr>{% endif %}
+            {% if o.administracion %}<tr><td>Administración</td><td class="text-end">{{ o.administracion }}</td></tr>{% endif %}
+          </table>
+          {% if o.descripcion %}<div class="small"><b>Descripción:</b> {{ o.descripcion|linebreaksbr }}</div>{% endif %}
+          {% if o.ventajas %}<div class="small mt-1"><b>Ventajas:</b> {{ o.ventajas|linebreaksbr }}</div>{% endif %}
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+    {% else %}
+      <p class="text-muted mb-0">Este inmueble no tiene ofertas registradas. Usa <a href="{% url 'inmueble_update' inmueble.pk %}">Editar</a> para agregarlas.</p>
+    {% endif %}
+  </div>
+</div>
+
 {% if inmueble.informacion_adicional %}
 <div class="card shadow-sm mb-3">
   <div class="card-header fw-semibold">Información adicional</div>

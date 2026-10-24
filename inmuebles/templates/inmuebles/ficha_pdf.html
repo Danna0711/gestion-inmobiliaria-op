@@ -16,7 +16,9 @@
   h1 { font-size: 18pt; color: #3F4530; margin: 0 0 2px 0; }
   .precio { font-size: 16pt; font-weight: bold; color: #8C7640; }
   .admin { font-size: 9pt; color: #555555; }
-  h2 { font-size: 11pt; color: #FFFFFF; background-color: #4A5236; padding: 3px 6px 2px 6px; margin: 10px 0 0 0; }
+  .etiqueta-precio { font-size: 11pt; font-weight: normal; color: #555555; }
+  h3 { -pdf-keep-with-next: true; font-size: 10.5pt; color: #3F4530; margin: 8px 0 2px 0; border-bottom: 1px solid #A8935B; }
+  h2 { -pdf-keep-with-next: true; font-size: 11pt; color: #FFFFFF; background-color: #4A5236; padding: 3px 6px 2px 6px; margin: 10px 0 0 0; }
   table.datos { width: 100%; }
   table.datos td { padding: 3px 6px 2px 6px; border-bottom: 1px solid #DDDDDD; vertical-align: top; }
   td.etiqueta { width: 38%; color: #555555; }
@@ -34,8 +36,9 @@
       <td style="vertical-align: middle;">
         {% if not logo %}<div class="marca">{{ empresa.nombre }}</div>{% endif %}
         <h1>{{ titulo }}</h1>
-        <div class="precio">{{ valor }}</div>
+        <div class="precio">{% if etiqueta_precio %}<span class="etiqueta-precio">{{ etiqueta_precio }}:</span> {% endif %}{{ valor }}</div>
         {% if administracion %}<div class="admin">Administración: {{ administracion }}</div>{% endif %}
+        {% if nota_precio %}<div class="admin">{{ nota_precio }}</div>{% endif %}
       </td>
     </tr>
   </table>
@@ -71,6 +74,23 @@
     {% endfor %}
   </table>
   {% endfor %}
+
+  {% if ofertas %}
+  <h2>{% if ofertas|length == 1 %}Oferta comercial{% else %}Ofertas comerciales{% endif %}</h2>
+  {% for o in ofertas %}
+  <div>
+    <h3>{{ o.titulo }} ({{ o.modalidad }})</h3>
+    <table class="datos">
+      {% if o.area %}<tr><td class="etiqueta">Área ofrecida</td><td>{{ o.area }}</td></tr>{% endif %}
+      {% if o.descripcion %}<tr><td class="etiqueta">Descripción general</td><td>{{ o.descripcion|linebreaksbr }}</td></tr>{% endif %}
+      {% if o.ventajas %}<tr><td class="etiqueta">Ventajas destacadas</td><td>{{ o.ventajas|linebreaksbr }}</td></tr>{% endif %}
+      <tr><td class="etiqueta">{{ o.etiqueta_valor }}</td><td><b>{{ o.valor }}</b></td></tr>
+      {% if o.iva %}<tr><td class="etiqueta">IVA 19 %</td><td>{{ o.iva }}</td></tr>{% endif %}
+      {% if o.administracion %}<tr><td class="etiqueta">Administración</td><td>{{ o.administracion }}</td></tr>{% endif %}
+    </table>
+  </div>
+  {% endfor %}
+  {% endif %}
 
   {% if informacion_adicional %}
   <h2>Información adicional</h2>

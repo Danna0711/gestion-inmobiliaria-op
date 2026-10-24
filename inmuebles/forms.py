@@ -1,7 +1,8 @@
 from django import forms
+from django.forms import BaseInlineFormSet, inlineformset_factory
 
-from .formato import ETIQUETAS
-from .models import Documento, Inmueble, Poliza, Propietario
+from .formato import ETIQUETAS, ETIQUETAS_OFERTA
+from .models import Documento, Inmueble, OfertaComercial, Poliza, Propietario
 
 
 class BootstrapFormMixin:
@@ -46,6 +47,9 @@ class InmuebleForm(BootstrapFormMixin, forms.ModelForm):
     AYUDAS = {
         "uso_suelo": "Actividad que se realiza en el inmueble.",
         "informacion_adicional": "Notas u observaciones del inmueble que no tengan un campo propio.",
+        "capacidad_piso": "Toneladas que soporta el piso por metro cuadrado.",
+        "margen_negociacion": "Dato interno: no aparece en la ficha PDF.",
+        "impuesto_predial": "Dato interno: no aparece en la ficha PDF.",
     }
 
     SECCIONES = [
@@ -69,19 +73,23 @@ class InmuebleForm(BootstrapFormMixin, forms.ModelForm):
             ],
             ["casa", "apartamento", "local", "otro"],
         ),
-        ("Datos de bodega y local", ["kva", "altura", "uso_suelo"], ["bodega", "local"]),
         (
-            "Valores",
-            ["valor_transaccion", "valor_administracion", "margen_negociacion", "impuesto_predial"],
-            None,
+            "Datos de bodega y local",
+            [
+                "kva", "altura", "uso_suelo", "area_libre", "area_administrativa",
+                "capacidad_piso", "muelles", "entradas_nivel",
+            ],
+            ["bodega", "local"],
         ),
+        ("Valores internos", ["margen_negociacion", "impuesto_predial"], None),
         ("Matrículas inmobiliarias", ["matricula_1", "matricula_2"], None),
         ("Información adicional", ["informacion_adicional"], None),
     ]
 
     class Meta:
         model = Inmueble
-        fields = "__all__"
+        # El valor y la administración se toman de la primera oferta comercial
+        exclude = ["valor_transaccion", "valor_administracion"]
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -265,6 +273,8 @@ class BusquedaInmuebleForm(forms.Form):
                              choices=[("", "Todos los tipos")] + Inmueble.TIPO_INMUEBLE_CHOICES)
     estado = forms.ChoiceField(required=False, label="Estado",
                                choices=[("", "Todos los estados")] + Inmueble.ESTADO_CHOICES)
+    modalidad = forms.ChoiceField(required=False, label="Modalidad",
+                                  choices=[("", "Venta o arriendo")] + OfertaComercial.MODALIDAD_CHOICES)
     ciudad = forms.ChoiceField(required=False, label="Ciudad")
     barrio = forms.CharField(required=False, label="Barrio", max_length=100)
     precio_min = forms.CharField(required=False, label="Precio desde")
@@ -306,7 +316,57 @@ class BusquedaInmuebleForm(forms.Form):
         return datos
 
     # campos que se muestran en el panel de filtros avanzados
-    AVANZADOS = ("ciudad", "barrio", "precio_min", "precio_max", "habitaciones_min", "orden")
+    AVANZADOS = ("modalidad", "ciudad", "barrio", "precio_min", "precio_max", "habitaciones_min", "orden")
 
     def hay_avanzados(self):
         return any(self.data.get(n) for n in self.AVANZADOS)
+
+
+# ------------------------- OFERTAS COMERCIALES -------------------------
+
+class OfertaForm(BootstrapFormMixin, forms.ModelForm):
+    class Meta:
+        model = OfertaComercial
+        exclude = ["inmueble"]
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.aplicar_estilos()
+        for nombre, etiqueta in ETIQUETAS_OFERTA.items():
+            self.fields[nombre].label = etiqueta
+        self.fields["titulo"].widget.attrs["placeholder"] = "Ej.: Opción 1 - 4.000 m² con estantería"
+        self.fields["modalidad"].choices = [("", "Selecciona…")] + OfertaComercial.MODALIDAD_CHOICES
+
+    def clean_valor(self):
+        valor = self.cleaned_data["valor"]
+        if valor is not None and valor <= 0:
+            raise forms.ValidationError("El valor debe ser mayor que cero.")
+        return valor
+
+    def clean_area(self):
+        area = self.cleaned_data.get("area")
+        if area is not None and area <= 0:
+            raise forms.ValidationError("El área debe ser mayor que cero.")
+        return area
+
+
+class BaseOfertaFormSet(BaseInlineFormSet):
+    def ofertas_vigentes(self):
+        """Formularios de oferta diligenciados y no marcados para eliminar, en orden."""
+        return [
+            f for f in self.forms
+            if getattr(f, "cleaned_data", None) and not f.cleaned_data.get("DELETE")
+        ]
+
+    def clean(self):
+        super().clean()
+        if any(self.errors):
+            return
+        if not self.ofertas_vigentes():
+            raise forms.ValidationError("Registra al menos una oferta comercial.")
+
+
+OfertaFormSet = inlineformset_factory(
+    Inmueble, OfertaComercial, form=OfertaForm, formset=BaseOfertaFormSet,
+    extra=0, min_num=1, validate_min=False, can_delete=True,
+)

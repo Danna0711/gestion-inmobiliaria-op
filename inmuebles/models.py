@@ -76,6 +76,12 @@ class Inmueble(models.Model):
     altura = models.DecimalField(max_digits=6, decimal_places=2, blank=True, null=True)
     uso_suelo = models.CharField("Uso de suelo", max_length=100, blank=True, null=True)
     informacion_adicional = models.TextField("Información adicional", blank=True, null=True)
+    # --- Datos adicionales de bodega (y local) ---
+    area_libre = models.DecimalField(max_digits=10, decimal_places=2, blank=True, null=True)
+    area_administrativa = models.DecimalField(max_digits=10, decimal_places=2, blank=True, null=True)
+    capacidad_piso = models.DecimalField(max_digits=6, decimal_places=2, blank=True, null=True)
+    muelles = models.PositiveSmallIntegerField(blank=True, null=True)
+    entradas_nivel = models.PositiveSmallIntegerField(blank=True, null=True)
 
     def __str__(self):
         return f"{self.get_tipo_inmueble_display()} - {self.direccion}"
@@ -118,3 +124,23 @@ class Poliza(models.Model):
 
     def __str__(self):
         return f"{self.nombre_poliza} - {self.inmueble}"
+
+    
+class OfertaComercial(models.Model):
+    MODALIDAD_CHOICES = [("venta", "Venta"), ("arriendo", "Arriendo")]
+
+    inmueble = models.ForeignKey(Inmueble, on_delete=models.CASCADE, related_name="ofertas")
+    titulo = models.CharField(max_length=100, blank=True, null=True)
+    modalidad = models.CharField(max_length=10, choices=MODALIDAD_CHOICES)
+    area = models.DecimalField(max_digits=10, decimal_places=2, blank=True, null=True)
+    valor = models.DecimalField(max_digits=14, decimal_places=2)
+    aplica_iva = models.BooleanField(default=False)
+    valor_administracion = models.DecimalField(max_digits=12, decimal_places=2, blank=True, null=True)
+    descripcion = models.TextField(blank=True, null=True)
+    ventajas = models.TextField(blank=True, null=True)
+
+    class Meta:
+        ordering = ["id"]
+
+    def __str__(self):
+        return f"{self.titulo or 'Oferta'} - {self.inmueble}"
