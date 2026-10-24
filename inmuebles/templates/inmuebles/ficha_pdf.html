@@ -1,0 +1,87 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<title>{{ titulo }}</title>
+<style>
+  @page {
+    size: letter;
+    margin: 1.4cm 1.5cm 2.2cm 1.5cm;
+    @frame pie { -pdf-frame-content: pie; left: 1.5cm; right: 1.5cm; bottom: 0.8cm; height: 1.2cm; }
+  }
+  body { font-family: Helvetica; font-size: 10pt; color: #222222; }
+  /* Colores tomados del logo: verde oliva y dorado */
+  .marca { color: #3F4530; font-size: 11pt; font-weight: bold; }
+  .linea { border-bottom: 2px solid #A8935B; margin: 6px 0 8px 0; }
+  h1 { font-size: 18pt; color: #3F4530; margin: 0 0 2px 0; }
+  .precio { font-size: 16pt; font-weight: bold; color: #8C7640; }
+  .admin { font-size: 9pt; color: #555555; }
+  h2 { font-size: 11pt; color: #FFFFFF; background-color: #4A5236; padding: 3px 6px 2px 6px; margin: 10px 0 0 0; }
+  table.datos { width: 100%; }
+  table.datos td { padding: 3px 6px 2px 6px; border-bottom: 1px solid #DDDDDD; vertical-align: top; }
+  td.etiqueta { width: 38%; color: #555555; }
+  .etiqueta-foto { font-size: 8pt; color: #555555; text-align: center; }
+  .texto { padding: 4px 6px; }
+  #pie { font-size: 8.5pt; color: #555555; border-top: 1px solid #BBBBBB; padding-top: 4px; }
+</style>
+</head>
+<body>
+  <table style="width: 100%;">
+    <tr>
+      {% if logo %}
+      <td style="width: 165px; vertical-align: middle;"><img src="{{ logo }}" width="150" height="80"></td>
+      {% endif %}
+      <td style="vertical-align: middle;">
+        {% if not logo %}<div class="marca">{{ empresa.nombre }}</div>{% endif %}
+        <h1>{{ titulo }}</h1>
+        <div class="precio">{{ valor }}</div>
+        {% if administracion %}<div class="admin">Administración: {{ administracion }}</div>{% endif %}
+      </td>
+    </tr>
+  </table>
+  <div class="linea"></div>
+
+  {% if foto_principal %}
+  <div style="margin-top: 8px; text-align: center;">
+    <img src="{{ foto_principal.src }}" width="480" height="320">
+    {% if foto_principal.etiqueta %}<div class="etiqueta-foto">{{ foto_principal.etiqueta }}</div>{% endif %}
+  </div>
+  {% endif %}
+
+  {% if filas_miniaturas %}
+  <table style="width: 100%; margin-top: 4px;">
+    {% for fila in filas_miniaturas %}
+    <tr>
+      {% for foto in fila %}
+      <td style="width: 33%; text-align: center; padding: 3px;">
+        <img src="{{ foto.src }}" width="160" height="120">
+        {% if foto.etiqueta %}<div class="etiqueta-foto">{{ foto.etiqueta }}</div>{% endif %}
+      </td>
+      {% endfor %}
+    </tr>
+    {% endfor %}
+  </table>
+  {% endif %}
+
+  {% for seccion in secciones %}
+  <h2>{{ seccion.titulo }}</h2>
+  <table class="datos">
+    {% for etiqueta, valor in seccion.filas %}
+    <tr><td class="etiqueta">{{ etiqueta }}</td><td>{{ valor }}</td></tr>
+    {% endfor %}
+  </table>
+  {% endfor %}
+
+  {% if informacion_adicional %}
+  <h2>Información adicional</h2>
+  <div class="texto">{{ informacion_adicional|linebreaksbr }}</div>
+  {% endif %}
+
+  <div id="pie">
+    <b>{{ empresa.nombre }}</b>
+    {% if empresa.telefono %} | Cel.: {{ empresa.telefono }}{% endif %}
+    {% if empresa.correo %} | {{ empresa.correo }}{% endif %}
+    <br>Ficha generada el {{ fecha }}. Los valores y condiciones están sujetos a cambios sin previo aviso.
+  </div>
+</body>
+</html>

@@ -7,6 +7,7 @@ urlpatterns = [
     path("inmuebles/nuevo/", views.InmuebleCreateView.as_view(), name="inmueble_create"),
     path("inmuebles/<int:pk>/", views.InmuebleDetailView.as_view(), name="inmueble_detail"),
     path("inmuebles/<int:pk>/editar/", views.InmuebleUpdateView.as_view(), name="inmueble_update"),
+    path("inmuebles/<int:pk>/ficha.pdf", views.InmuebleFichaPDFView.as_view(), name="inmueble_ficha_pdf"),
     path("inmuebles/<int:pk>/eliminar/", views.InmuebleDeleteView.as_view(), name="inmueble_delete"),
     path("inmuebles/<int:pk>/fotos/subir/", views.FotografiaSubirView.as_view(), name="foto_subir"),
     path("fotos/<int:pk>/eliminar/", views.FotografiaEliminarView.as_view(), name="foto_eliminar"),

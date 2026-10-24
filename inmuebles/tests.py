@@ -750,3 +750,197 @@ class BusquedaFiltrosTests(TestCase):
         resp = self.buscar(ciudad="Medellín", page="1")
         self.assertIn("ciudad=Medell", resp.context["filtros_url"])
         self.assertNotIn("page", resp.context["filtros_url"])
+
+
+# ============================== FICHA EN PDF ==============================
+
+@override_settings(MEDIA_ROOT=MEDIA_TEMPORAL)
+class FichaPDFTests(TestCase):
+    def setUp(self):
+        self.usuario = get_user_model().objects.create_user(
+            "ficha", password="clave-segura-123", first_name="Sara", last_name="Díaz"
+        )
+        self.client.force_login(self.usuario)
+        self.propietario = Propietario.objects.create(
+            nombre_completo="Propietario Secreto", numero_identificacion="5551234", numero_contacto="3009998877"
+        )
+        self.inmueble = Inmueble.objects.create(
+            propietario=self.propietario, ciudad="Bogotá", barrio="Cedritos", tipo_inmueble="apartamento",
+            direccion="Calle 140 # 12-30", valor_transaccion=350000000, valor_administracion=420000,
+            habitaciones=3, banos=2, estrato=4, servicio_agua=True, ascensores=True,
+            matricula_1="50N-123456", margen_negociacion=15000000, impuesto_predial=1800000,
+            id_captacion="CAP-777", informacion_adicional="Vista exterior y cerca a TransMilenio.",
+        )
+
+    def html(self):
+        from django.template.loader import render_to_string
+        from . import ficha
+        ctx = ficha.contexto_ficha(self.inmueble, self.usuario)
+        ctx.update({"foto_principal": None, "filas_miniaturas": []})
+        return render_to_string("inmuebles/ficha_pdf.html", ctx)
+
+    def test_genera_pdf(self):
+        resp = self.client.get(reverse("inmueble_ficha_pdf", args=[self.inmueble.pk]))
+        self.assertEqual(resp.status_code, 200)
+        self.assertEqual(resp["Content-Type"], "application/pdf")
+        self.assertTrue(resp.content.startswith(b"%PDF"))
+        self.assertIn("inline", resp["Content-Disposition"])
+        self.assertIn("ficha_apartamento_cedritos", resp["Content-Disposition"])
+
+    def test_descargar(self):
+        resp = self.client.get(reverse("inmueble_ficha_pdf", args=[self.inmueble.pk]), {"descargar": "1"})
+        self.assertIn("attachment", resp["Content-Disposition"])
+
+    def test_contenido_comercial(self):
+        html = self.html()
+        self.assertIn("Apartamento en Cedritos, Bogotá", html)
+        self.assertIn("$ 350.000.000", html)
+        self.assertIn("$ 420.000", html)
+        self.assertIn("Calle 140 # 12-30", html)
+        self.assertIn("Habitaciones", html)
+        self.assertIn("Vista exterior", html)
+        self.assertIn("311 553 7531", html)  # contacto de la inmobiliaria
+
+    def test_areas_en_formato_colombiano(self):
+        from decimal import Decimal
+        self.inmueble.area_construida = Decimal("82.50")
+        self.inmueble.save()
+        html = self.html()
+        self.assertIn("Área construida (m2)", html)
+        self.assertIn("82,5", html)
+
+    def test_no_incluye_datos_internos(self):
+        html = self.html()
+        for dato in ["Propietario Secreto", "5551234", "3009998877", "50N-123456",
+                     "15.000.000", "1.800.000", "CAP-777", "Disponible"]:
+            self.assertNotIn(dato, html, dato)
+
+    def test_secciones_internas_no_estan_configuradas(self):
+        from . import ficha
+        configurados = {c for _, campos in ficha.SECCIONES_FICHA for c in campos}
+        self.assertFalse(configurados & ficha.CAMPOS_INTERNOS)
+
+    def test_si_no_falsos_se_omiten_y_servicios_se_muestran(self):
+        from . import ficha
+        ctx = ficha.contexto_ficha(self.inmueble)
+        filas = {e: v for s in ctx["secciones"] for e, v in s["filas"]}
+        self.assertEqual(filas["Ascensores"], "Sí")
+        self.assertEqual(filas["Servicio de agua"], "Sí")
+        self.assertEqual(filas["Servicio de gas"], "No")
+        self.assertNotIn("Club house", filas)
+
+    def test_no_muestra_asesor(self):
+        self.inmueble.nombre_agente = "Paola Gómez"
+        self.inmueble.save()
+        html = self.html()
+        self.assertNotIn("Paola Gómez", html)
+        self.assertNotIn("Sara Díaz", html)  # tampoco el usuario que genera la ficha
+        self.assertNotIn("Asesor", html)
+
+    def test_pdf_con_fotografias(self):
+        from unittest import mock
+        from . import ficha
+        self.enterContext(mock.patch.object(ficha, "OPACIDAD_MARCA", 0))
+        sin_fotos = len(self.client.get(reverse("inmueble_ficha_pdf", args=[self.inmueble.pk])).content)
+        for i in range(9):
+            memoria = io.BytesIO()
+            Image.new("RGB", (40, 30), (20 * i, 100, 255 - 20 * i)).save(memoria, "PNG")
+            archivo = SimpleUploadedFile(f"f{i}.png", memoria.getvalue(), content_type="image/png")
+            Fotografia.objects.create(inmueble=self.inmueble, archivo=archivo, etiqueta=f"Foto {i}")
+        from . import ficha
+        self.assertEqual(len(ficha.contexto_ficha(self.inmueble)["fotos"]), ficha.MAX_FOTOS)
+        resp = self.client.get(reverse("inmueble_ficha_pdf", args=[self.inmueble.pk]))
+        self.assertEqual(resp.status_code, 200)
+        self.assertGreater(len(resp.content), sin_fotos)
+        # las 7 fotos más el logo deben quedar incrustados como imágenes dentro del PDF
+        self.assertEqual(resp.content.count(b"/Subtype /Image"), ficha.MAX_FOTOS + 1)
+
+    def test_logo_en_la_ficha(self):
+        from unittest import mock as _mock
+        from . import ficha as _ficha
+        self.enterContext(_mock.patch.object(_ficha, "OPACIDAD_MARCA", 0))
+        from . import ficha
+        self.assertTrue(ficha.LOGO.exists())
+        con_logo = self.client.get(reverse("inmueble_ficha_pdf", args=[self.inmueble.pk])).content
+        self.assertEqual(con_logo.count(b"/Subtype /Image"), 1)
+
+    def test_sin_logo_la_ficha_se_genera_igual(self):
+        from unittest import mock as _mock
+        from . import ficha as _ficha
+        self.enterContext(_mock.patch.object(_ficha, "OPACIDAD_MARCA", 0))
+        from pathlib import Path
+        from unittest import mock
+        from . import ficha
+        with mock.patch.object(ficha, "LOGO", Path("no_existe.png")):
+            resp = self.client.get(reverse("inmueble_ficha_pdf", args=[self.inmueble.pk]))
+        self.assertTrue(resp.content.startswith(b"%PDF"))
+        self.assertEqual(resp.content.count(b"/Subtype /Image"), 0)
+
+    def test_foto_dañada_no_impide_generar(self):
+        Fotografia.objects.create(
+            inmueble=self.inmueble, archivo=SimpleUploadedFile("rota.png", b"no es imagen")
+        )
+        resp = self.client.get(reverse("inmueble_ficha_pdf", args=[self.inmueble.pk]))
+        self.assertEqual(resp.status_code, 200)
+        self.assertTrue(resp.content.startswith(b"%PDF"))
+
+    def test_bodega_muestra_datos_tecnicos(self):
+        self.inmueble.tipo_inmueble = "bodega"
+        self.inmueble.kva = 150
+        self.inmueble.uso_suelo = "Industrial"
+        self.inmueble.save()
+        html = self.html()
+        self.assertIn("Datos técnicos", html)
+        self.assertIn("Industrial", html)
+
+    def test_detalle_tiene_botones(self):
+        resp = self.client.get(reverse("inmueble_detail", args=[self.inmueble.pk]))
+        self.assertContains(resp, "Ver ficha PDF")
+        self.assertContains(resp, reverse("inmueble_ficha_pdf", args=[self.inmueble.pk]))
+
+    def test_requiere_login(self):
+        self.client.logout()
+        resp = self.client.get(reverse("inmueble_ficha_pdf", args=[self.inmueble.pk]))
+        self.assertEqual(resp.status_code, 302)
+
+
+class MarcaDeAguaTests(TestCase):
+    def setUp(self):
+        propietario = Propietario.objects.create(
+            nombre_completo="P", numero_identificacion="61", numero_contacto="1"
+        )
+        self.inmueble = Inmueble.objects.create(
+            propietario=propietario, ciudad="Cali", tipo_inmueble="casa", direccion="Calle 1",
+            valor_transaccion=100, informacion_adicional="Línea\n" * 120,  # fuerza más de una página
+        )
+
+    def imagenes_por_pagina(self, pdf):
+        from pypdf import PdfReader
+        resultado = []
+        for pagina in PdfReader(io.BytesIO(pdf)).pages:
+            xobjects = pagina["/Resources"].get("/XObject", {})
+            resultado.append(len(xobjects))
+        return resultado
+
+    def generar(self, **cambios):
+        from unittest import mock
+        from . import ficha
+        with mock.patch.multiple(ficha, **cambios) if cambios else mock.patch.object(ficha, "MAX_FOTOS", 7):
+            return ficha.generar_pdf(self.inmueble)
+
+    def test_archivo_de_marca_existe(self):
+        from . import ficha
+        self.assertTrue(ficha.MARCA_DE_AGUA.exists())
+
+    def test_marca_en_todas_las_paginas(self):
+        con_marca = self.imagenes_por_pagina(self.generar())
+        sin_marca = self.imagenes_por_pagina(self.generar(OPACIDAD_MARCA=0))
+        self.assertGreater(len(con_marca), 1)
+        for con, sin in zip(con_marca, sin_marca):
+            self.assertEqual(con, sin + 1)  # una imagen más por página: la marca de agua
+
+    def test_sin_archivo_la_ficha_se_genera_sin_marca(self):
+        from pathlib import Path
+        pdf = self.generar(MARCA_DE_AGUA=Path("no_existe.png"))
+        self.assertTrue(pdf.startswith(b"%PDF"))
+        self.assertEqual(self.imagenes_por_pagina(pdf), self.imagenes_por_pagina(self.generar(OPACIDAD_MARCA=0)))

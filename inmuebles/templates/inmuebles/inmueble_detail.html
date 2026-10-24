@@ -6,6 +6,8 @@
   <h1 class="h3 mb-0">{{ inmueble }}</h1>
   <div class="d-flex gap-2">
     <a class="btn btn-outline-secondary" href="{% url 'inmueble_list' %}">Volver</a>
+    <a class="btn btn-success" href="{% url 'inmueble_ficha_pdf' inmueble.pk %}" target="_blank" rel="noopener">Ver ficha PDF</a>
+    <a class="btn btn-outline-success" href="{% url 'inmueble_ficha_pdf' inmueble.pk %}?descargar=1">Descargar ficha</a>
     <a class="btn btn-primary" href="{% url 'inmueble_update' inmueble.pk %}">Editar</a>
     <a class="btn btn-outline-danger" href="{% url 'inmueble_delete' inmueble.pk %}">Eliminar</a>
   </div>

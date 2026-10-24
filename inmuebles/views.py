@@ -4,14 +4,16 @@ from decimal import Decimal
 from django.contrib import messages
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.db.models import Q
+from django.http import HttpResponse
 from django.shortcuts import get_object_or_404, redirect
+from django.utils.text import slugify
 from django.urls import reverse_lazy
 from django.utils import timezone
 from django.utils.http import url_has_allowed_host_and_scheme
 from django.views import View
 from django.views.generic import CreateView, DeleteView, DetailView, ListView, UpdateView
 
-from . import formato
+from . import ficha, formato
 from .forms import (
     BusquedaInmuebleForm, DocumentoSubirForm, FotografiaSubirForm, InmuebleForm, PolizaForm, PropietarioForm,
 )
@@ -409,3 +411,23 @@ class PolizaAlertasView(LoginRequiredMixin, ListView):
         ctx["todas"] = self.request.GET.get("todas") == "1"
         ctx["dias_aviso"] = formato.DIAS_AVISO_POLIZA
         return ctx
+
+
+# ---------------------------- FICHA EN PDF ----------------------------
+
+class InmuebleFichaPDFView(LoginRequiredMixin, View):
+    """Genera la ficha del inmueble en PDF (RF15). Con ?descargar=1 se descarga el archivo."""
+
+    def get(self, request, pk):
+        inmueble = get_object_or_404(Inmueble, pk=pk)
+        try:
+            pdf = ficha.generar_pdf(inmueble, request.user)
+        except RuntimeError:
+            messages.error(request, "No se pudo generar la ficha en PDF. Intenta de nuevo.")
+            return redirect("inmueble_detail", pk=inmueble.pk)
+        partes = [inmueble.get_tipo_inmueble_display(), inmueble.barrio or inmueble.ciudad, str(inmueble.pk)]
+        nombre = "ficha_" + slugify("_".join(partes)).replace("-", "_") + ".pdf"
+        respuesta = HttpResponse(pdf, content_type="application/pdf")
+        modo = "attachment" if request.GET.get("descargar") == "1" else "inline"
+        respuesta["Content-Disposition"] = f'{modo}; filename="{nombre}"'
+        return respuesta
