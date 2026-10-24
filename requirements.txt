@@ -1,0 +1,4 @@
+# Librerías que necesita el sistema (se instalan con: pip install -r requirements.txt)
+Django>=6.1,<6.2
+Pillow>=12.3
+xhtml2pdf==0.2.27

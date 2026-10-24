@@ -134,3 +134,27 @@ MEDIA_ROOT = BASE_DIR / "media"
 LOGIN_URL = "login"
 LOGIN_REDIRECT_URL = "inmueble_list"
 LOGOUT_REDIRECT_URL = "login"
+
+# PRODUCCIÓN (PythonAnywhere)
+# ---------------------------------------------------------------------------
+import os
+
+STATIC_ROOT = BASE_DIR / "staticfiles"
+
+if os.environ.get("DJANGO_PRODUCCION") == "1":
+    DEBUG = False
+    SECRET_KEY = os.environ["DJANGO_SECRET_KEY"]
+    ALLOWED_HOSTS = [h.strip() for h in os.environ.get("DJANGO_ALLOWED_HOSTS", "").split(",") if h.strip()]
+    CSRF_TRUSTED_ORIGINS = ["https://" + h for h in ALLOWED_HOSTS]
+    SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
+    SECURE_SSL_REDIRECT = True
+    SESSION_COOKIE_SECURE = True
+    CSRF_COOKIE_SECURE = True
+    SECURE_HSTS_SECONDS = 3600
+    SECURE_CONTENT_TYPE_NOSNIFF = True
+    X_FRAME_OPTIONS = "DENY"
+    SESSION_COOKIE_AGE = 60 * 60 * 12  # la sesión dura 12 horas
+    # Avisos de la revisión de seguridad que no aplican a este sistema:
+    # - mail.E001: el sistema no envía correos.
+    # - security.W005 y W021: se refieren a los subdominios de pythonanywhere.com, que no controlamos.
+    SILENCED_SYSTEM_CHECKS = ["mail.E001", "security.W005", "security.W021"]

@@ -1,13 +1,17 @@
+import io
+import mimetypes
 from datetime import date, timedelta
 from decimal import Decimal
+from pathlib import Path
 
+from django.conf import settings
 from django.contrib import messages
 from django.contrib.auth.mixins import LoginRequiredMixin
+from django.core.files.base import ContentFile
 from django.db import transaction
 from django.db.models import Count, Exists, OuterRef, Q
-from django.http import HttpResponse
+from django.http import FileResponse, Http404, HttpResponse
 from django.shortcuts import get_object_or_404, redirect
-from django.utils.text import slugify
 from django.urls import reverse_lazy
 from django.utils import timezone
 from django.utils.http import url_has_allowed_host_and_scheme
@@ -138,6 +142,8 @@ class InmuebleDetailView(LoginRequiredMixin, DetailView):
         ctx["campos"] = campos
         ctx["fotos"] = obj.fotografias.all()
         ctx["ofertas"] = [formato.resumen_oferta(o, n) for n, o in enumerate(obj.ofertas.all(), 1)]
+        ctx["ficha_nombre"] = ficha.nombre_archivo(obj)
+        ctx["ficha_mensaje"] = ficha.mensaje_compartir(obj)
         ctx["form_foto"] = FotografiaSubirForm()
         ctx["documentos"] = obj.documentos.order_by("tipo_documento", "id")
         ctx["form_doc"] = DocumentoSubirForm()
@@ -287,6 +293,33 @@ class PropietarioUpdateView(LoginRequiredMixin, _PropietarioSuccessMixin, Update
 
 # ---------------------------- FOTOGRAFÍAS ----------------------------
 
+LADO_MAXIMO_FOTO = 1920  # píxeles del lado más largo; suficiente para pantalla y para la ficha
+
+
+def reducir_foto(archivo):
+    """Reduce la foto a 1920 px como máximo y la guarda en JPEG, para ahorrar espacio en el servidor.
+
+    Una foto de celular de 4 a 8 MB queda en unos 300 a 600 KB, sin pérdida visible.
+    """
+    from PIL import Image, ImageOps
+
+    archivo.seek(0)
+    with Image.open(archivo) as img:
+        img = ImageOps.exif_transpose(img)  # respeta la orientación con que se tomó la foto
+        if img.mode in ("RGBA", "LA", "P"):
+            fondo = Image.new("RGB", img.size, "white")
+            img = img.convert("RGBA")
+            fondo.paste(img, mask=img.getchannel("A"))
+            img = fondo
+        else:
+            img = img.convert("RGB")
+        img.thumbnail((LADO_MAXIMO_FOTO, LADO_MAXIMO_FOTO), Image.LANCZOS)
+        memoria = io.BytesIO()
+        img.save(memoria, "JPEG", quality=85, optimize=True)
+    nombre = Path(archivo.name).stem + ".jpg"
+    return ContentFile(memoria.getvalue(), name=nombre)
+
+
 class FotografiaSubirView(LoginRequiredMixin, View):
     http_method_names = ["post"]
 
@@ -297,7 +330,7 @@ class FotografiaSubirView(LoginRequiredMixin, View):
             etiqueta = form.cleaned_data["etiqueta"].strip()
             archivos = form.cleaned_data["archivos"]
             for archivo in archivos:
-                Fotografia.objects.create(inmueble=inmueble, archivo=archivo, etiqueta=etiqueta)
+                Fotografia.objects.create(inmueble=inmueble, archivo=reducir_foto(archivo), etiqueta=etiqueta)
             if len(archivos) == 1:
                 messages.success(request, "Se agregó 1 fotografía.")
             else:
@@ -458,9 +491,23 @@ class InmuebleFichaPDFView(LoginRequiredMixin, View):
         except RuntimeError:
             messages.error(request, "No se pudo generar la ficha en PDF. Intenta de nuevo.")
             return redirect("inmueble_detail", pk=inmueble.pk)
-        partes = [inmueble.get_tipo_inmueble_display(), inmueble.barrio or inmueble.ciudad, str(inmueble.pk)]
-        nombre = "ficha_" + slugify("_".join(partes)).replace("-", "_") + ".pdf"
+        nombre = ficha.nombre_archivo(inmueble)
         respuesta = HttpResponse(pdf, content_type="application/pdf")
         modo = "attachment" if request.GET.get("descargar") == "1" else "inline"
         respuesta["Content-Disposition"] = f'{modo}; filename="{nombre}"'
         return respuesta
+
+
+# ------------------------ ARCHIVOS PROTEGIDOS ------------------------
+
+class ArchivoProtegidoView(LoginRequiredMixin, View):
+    """Entrega fotografías, documentos y pólizas solo a usuarios con sesión iniciada (RNF04)."""
+
+    def get(self, request, ruta):
+        base = Path(settings.MEDIA_ROOT).resolve()
+        archivo = (base / ruta).resolve()
+        # Impide salir de la carpeta media/ con rutas como ../../settings.py
+        if base not in archivo.parents or not archivo.is_file():
+            raise Http404("Archivo no encontrado")
+        tipo, _ = mimetypes.guess_type(archivo.name)
+        return FileResponse(open(archivo, "rb"), content_type=tipo or "application/octet-stream")

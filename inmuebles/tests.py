@@ -1198,3 +1198,126 @@ class MigracionOfertasTests(TestCase):
         self.assertEqual((o1.modalidad, o1.valor, o1.valor_administracion, o1.titulo),
                          ("arriendo", 205000000, 5000000, "Oferta 1"))
         self.assertEqual(vendible.ofertas.get().modalidad, "venta")
+
+
+# ============================ COMPARTIR FICHA ============================
+
+class CompartirFichaTests(TestCase):
+    def setUp(self):
+        self.usuario = get_user_model().objects.create_user("comp", password="clave-segura-123")
+        self.client.force_login(self.usuario)
+        p = Propietario.objects.create(nombre_completo="P", numero_identificacion="71", numero_contacto="1")
+        self.inmueble = Inmueble.objects.create(
+            propietario=p, ciudad="Bogotá", barrio="Cedritos", tipo_inmueble="apartamento",
+            direccion="Calle 140", valor_transaccion=100,
+        )
+
+    def test_boton_compartir_en_el_detalle(self):
+        resp = self.client.get(reverse("inmueble_detail", args=[self.inmueble.pk]))
+        self.assertContains(resp, 'id="compartir-ficha"')
+        self.assertContains(resp, f'data-url="{reverse("inmueble_ficha_pdf", args=[self.inmueble.pk])}"')
+        self.assertContains(resp, f'data-nombre="ficha_apartamento_cedritos_{self.inmueble.pk}.pdf"')
+        self.assertContains(resp, 'id="mensaje-ficha"')
+        self.assertContains(resp, "navigator.share")
+        self.assertContains(resp, "Descargar ficha")  # alternativa manual siempre disponible
+
+    def test_mensaje_para_compartir(self):
+        from . import ficha
+        mensaje = ficha.mensaje_compartir(self.inmueble)
+        self.assertIn("la ficha del apartamento en Cedritos, Bogotá", mensaje)
+        self.inmueble.tipo_inmueble = "bodega"
+        self.assertIn("la ficha de la bodega en", ficha.mensaje_compartir(self.inmueble))
+        self.inmueble.tipo_inmueble = "otro"
+        self.assertIn("la ficha del inmueble en", ficha.mensaje_compartir(self.inmueble))
+        self.inmueble.tipo_inmueble = "apartamento"
+        self.assertIn("OP Agente Inmobiliario", mensaje)
+        self.assertIn(ficha.EMPRESA["telefono"], mensaje)
+
+    def test_nombre_del_archivo_coincide_con_la_descarga(self):
+        from . import ficha
+        resp = self.client.get(reverse("inmueble_ficha_pdf", args=[self.inmueble.pk]))
+        self.assertIn(ficha.nombre_archivo(self.inmueble), resp["Content-Disposition"])
+
+
+# ======================= PREPARACIÓN PARA PRODUCCIÓN =======================
+
+@override_settings(MEDIA_ROOT=MEDIA_TEMPORAL)
+class ArchivosProtegidosTests(TestCase):
+    def setUp(self):
+        self.usuario = get_user_model().objects.create_user("arch", password="clave-segura-123")
+        p = Propietario.objects.create(nombre_completo="P", numero_identificacion="81", numero_contacto="1")
+        self.inmueble = Inmueble.objects.create(
+            propietario=p, ciudad="Cali", tipo_inmueble="casa", direccion="Calle 8", valor_transaccion=100,
+        )
+        self.doc = Documento.objects.create(
+            inmueble=self.inmueble, tipo_documento="escritura", archivo=pdf_de_prueba("escritura.pdf"),
+        )
+
+    def test_sin_sesion_no_se_puede_abrir(self):
+        resp = self.client.get(self.doc.archivo.url)
+        self.assertEqual(resp.status_code, 302)
+        self.assertIn("/accounts/login/", resp.url)
+
+    def test_con_sesion_se_abre(self):
+        self.client.force_login(self.usuario)
+        resp = self.client.get(self.doc.archivo.url)
+        self.assertEqual(resp.status_code, 200)
+        self.assertEqual(resp["Content-Type"], "application/pdf")
+        self.assertEqual(b"".join(resp.streaming_content), b"%PDF-1.4 prueba")
+
+    def test_no_permite_salir_de_la_carpeta_media(self):
+        self.client.force_login(self.usuario)
+        for ruta in ["/media/../manage.py", "/media/%2e%2e/manage.py", "/media/inmuebles/../../manage.py"]:
+            self.assertEqual(self.client.get(ruta).status_code, 404, ruta)
+
+    def test_archivo_inexistente(self):
+        self.client.force_login(self.usuario)
+        self.assertEqual(self.client.get("/media/inmuebles/no_existe.pdf").status_code, 404)
+
+
+@override_settings(MEDIA_ROOT=MEDIA_TEMPORAL)
+class ReduccionFotosTests(TestCase):
+    def setUp(self):
+        self.usuario = get_user_model().objects.create_user("red", password="clave-segura-123")
+        self.client.force_login(self.usuario)
+        p = Propietario.objects.create(nombre_completo="P", numero_identificacion="82", numero_contacto="1")
+        self.inmueble = Inmueble.objects.create(
+            propietario=p, ciudad="Cali", tipo_inmueble="casa", direccion="Calle 9", valor_transaccion=100,
+        )
+
+    def subir(self, img, nombre, formato_img):
+        memoria = io.BytesIO()
+        img.save(memoria, formato_img)
+        archivo = SimpleUploadedFile(nombre, memoria.getvalue(), content_type="image/" + formato_img.lower())
+        self.client.post(reverse("foto_subir", args=[self.inmueble.pk]), {"archivos": [archivo]})
+        return self.inmueble.fotografias.latest("id")
+
+    def test_foto_grande_se_reduce_a_1920(self):
+        # tamaño típico de una foto de celular (12 megapíxeles)
+        img = Image.linear_gradient("L").resize((4000, 3000)).convert("RGB")
+        foto = self.subir(img, "celular.jpg", "JPEG")
+        with Image.open(foto.archivo.path) as guardada:
+            self.assertEqual(guardada.size, (1920, 1440))
+            self.assertEqual(guardada.format, "JPEG")
+        self.assertTrue(foto.archivo.name.endswith(".jpg"))
+
+    def test_foto_pequena_no_se_agranda(self):
+        foto = self.subir(Image.new("RGB", (800, 600), "blue"), "chica.jpg", "JPEG")
+        with Image.open(foto.archivo.path) as guardada:
+            self.assertEqual(guardada.size, (800, 600))
+
+    def test_respeta_la_orientacion_del_celular(self):
+        img = Image.new("RGB", (400, 300), "green")
+        exif = Image.Exif()
+        exif[0x0112] = 6  # la cámara indica "rotar 90°"
+        memoria = io.BytesIO()
+        img.save(memoria, "JPEG", exif=exif)
+        archivo = SimpleUploadedFile("vertical.jpg", memoria.getvalue(), content_type="image/jpeg")
+        self.client.post(reverse("foto_subir", args=[self.inmueble.pk]), {"archivos": [archivo]})
+        with Image.open(self.inmueble.fotografias.latest("id").archivo.path) as guardada:
+            self.assertEqual(guardada.size, (300, 400))
+
+    def test_png_con_transparencia(self):
+        foto = self.subir(Image.new("RGBA", (100, 100), (255, 0, 0, 0)), "logo.png", "PNG")
+        with Image.open(foto.archivo.path) as guardada:
+            self.assertEqual(guardada.getpixel((50, 50)), (255, 255, 255))  # fondo blanco

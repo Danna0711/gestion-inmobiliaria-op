@@ -11,6 +11,7 @@ from decimal import Decimal
 from pathlib import Path
 
 from django.template.loader import render_to_string
+from django.utils.text import slugify
 from django.utils import timezone
 from PIL import Image, ImageOps
 from pypdf import PdfReader, PdfWriter
@@ -151,6 +152,28 @@ def contexto_ficha(inmueble, usuario=None):
         "empresa": EMPRESA,
         "fecha": formato.fecha(timezone.localdate()),
     }
+
+
+def nombre_archivo(inmueble):
+    """ficha_apartamento_cedritos_12.pdf"""
+    partes = [inmueble.get_tipo_inmueble_display(), inmueble.barrio or inmueble.ciudad, str(inmueble.pk)]
+    return "ficha_" + slugify("_".join(partes)).replace("-", "_") + ".pdf"
+
+
+def mensaje_compartir(inmueble):
+    """Texto que acompaña la ficha al compartirla (algunas aplicaciones lo omiten)."""
+    lugar = ", ".join(p for p in [inmueble.barrio, inmueble.ciudad] if p)
+    del_tipo = {
+        "casa": "de la casa", "bodega": "de la bodega", "apartamento": "del apartamento",
+        "local": "del local", "lote": "del lote",
+    }.get(inmueble.tipo_inmueble, "del inmueble")
+    lineas = [
+        f"Te comparto la ficha {del_tipo} en {lugar}.",
+        EMPRESA["nombre"],
+    ]
+    if EMPRESA["telefono"]:
+        lineas.append(f"Cel.: {EMPRESA['telefono']}")
+    return "\n".join(lineas)
 
 
 def _foto_incrustada(origen, ancho, alto):
