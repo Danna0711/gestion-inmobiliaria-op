@@ -20,4 +20,5 @@ urlpatterns = [
     path("propietarios/", views.PropietarioListView.as_view(), name="propietario_list"),
     path("propietarios/nuevo/", views.PropietarioCreateView.as_view(), name="propietario_create"),
     path("propietarios/<int:pk>/editar/", views.PropietarioUpdateView.as_view(), name="propietario_update"),
+    path("propietarios/<int:pk>/eliminar/", views.PropietarioDeleteView.as_view(), name="propietario_delete"),
 ]

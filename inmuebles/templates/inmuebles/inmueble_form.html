@@ -74,6 +74,9 @@
   <div class="d-flex gap-2 mb-5">
     <button class="btn btn-primary" type="submit">Guardar</button>
     <a class="btn btn-outline-secondary" href="{% url 'inmueble_list' %}">Cancelar</a>
+    {% if object.pk %}
+      <a class="btn btn-outline-danger ms-auto" href="{% url 'inmueble_delete' object.pk %}">Eliminar inmueble</a>
+    {% endif %}
   </div>
 </form>
 {% endblock %}

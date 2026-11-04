@@ -76,6 +76,7 @@
           <td><span class="badge text-bg-secondary">{{ i.get_estado_display }}</span></td>
           <td class="text-end text-nowrap">
             <a class="btn btn-sm btn-outline-primary" href="{% url 'inmueble_update' i.pk %}">Editar</a>
+            <a class="btn btn-sm btn-outline-danger" href="{% url 'inmueble_delete' i.pk %}">Eliminar</a>
           </td>
         </tr>
       {% empty %}

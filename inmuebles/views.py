@@ -211,19 +211,23 @@ class InmuebleUpdateView(LoginRequiredMixin, _InmuebleConOfertasMixin, UpdateVie
     mensaje_exito = "Los cambios se guardaron correctamente."
 
 
+def borrar_archivos_de_inmueble(inmueble):
+    """Borra del disco las fotografías, documentos y archivos de pólizas de un inmueble."""
+    for foto in inmueble.fotografias.all():
+        foto.archivo.delete(save=False)
+    for doc in inmueble.documentos.all():
+        doc.archivo.delete(save=False)
+    for poliza in inmueble.polizas.exclude(archivo=""):
+        poliza.archivo.delete(save=False)
+
+
 class InmuebleDeleteView(LoginRequiredMixin, DeleteView):
     model = Inmueble
     template_name = "inmuebles/inmueble_confirm_delete.html"
     success_url = reverse_lazy("inmueble_list")
 
     def form_valid(self, form):
-        # Borra también los archivos de fotografías y documentos del disco
-        for foto in self.object.fotografias.all():
-            foto.archivo.delete(save=False)
-        for doc in self.object.documentos.all():
-            doc.archivo.delete(save=False)
-        for poliza in self.object.polizas.exclude(archivo=""):
-            poliza.archivo.delete(save=False)
+        borrar_archivos_de_inmueble(self.object)
         messages.success(self.request, "El inmueble se eliminó.")
         return super().form_valid(form)
 
@@ -289,6 +293,39 @@ class PropietarioUpdateView(LoginRequiredMixin, _PropietarioSuccessMixin, Update
         ctx = super().get_context_data(**kwargs)
         ctx["titulo"] = "Editar propietario"
         return ctx
+
+
+class PropietarioDeleteView(LoginRequiredMixin, DeleteView):
+    """Elimina un propietario. Si tiene inmuebles, se eliminan también (con sus archivos),
+    pero solo después de que el usuario lo confirme marcando la casilla."""
+
+    model = Propietario
+    template_name = "inmuebles/propietario_confirm_delete.html"
+    success_url = reverse_lazy("propietario_list")
+
+    def get_context_data(self, **kwargs):
+        ctx = super().get_context_data(**kwargs)
+        ctx["inmuebles"] = self.object.inmuebles.order_by("direccion")
+        return ctx
+
+    def form_valid(self, form):
+        inmuebles = list(self.object.inmuebles.all())
+        if inmuebles and self.request.POST.get("confirmar_inmuebles") != "1":
+            messages.error(
+                self.request,
+                "Marca la casilla para confirmar que también se eliminarán sus inmuebles.",
+            )
+            return self.render_to_response(self.get_context_data())
+        for inmueble in inmuebles:
+            borrar_archivos_de_inmueble(inmueble)
+        nombre = self.object.nombre_completo
+        respuesta = super().form_valid(form)
+        if inmuebles:
+            cantidad = "1 inmueble" if len(inmuebles) == 1 else f"{len(inmuebles)} inmuebles"
+            messages.success(self.request, f"Se eliminó a {nombre} y su(s) {cantidad}.")
+        else:
+            messages.success(self.request, f"Se eliminó a {nombre}.")
+        return respuesta
 
 
 # ---------------------------- FOTOGRAFÍAS ----------------------------

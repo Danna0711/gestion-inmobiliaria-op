@@ -18,6 +18,9 @@
       <div class="d-flex gap-2">
         <button class="btn btn-primary" type="submit">Guardar</button>
         <a class="btn btn-outline-secondary" href="{% url 'propietario_list' %}">Cancelar</a>
+        {% if object.pk %}
+          <a class="btn btn-outline-danger ms-auto" href="{% url 'propietario_delete' object.pk %}">Eliminar propietario</a>
+        {% endif %}
       </div>
     </form>
   </div>

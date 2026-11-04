@@ -1321,3 +1321,70 @@ class ReduccionFotosTests(TestCase):
         foto = self.subir(Image.new("RGBA", (100, 100), (255, 0, 0, 0)), "logo.png", "PNG")
         with Image.open(foto.archivo.path) as guardada:
             self.assertEqual(guardada.getpixel((50, 50)), (255, 255, 255))  # fondo blanco
+
+
+# ============================== ELIMINAR ==============================
+
+@override_settings(MEDIA_ROOT=MEDIA_TEMPORAL)
+class EliminarTests(TestCase):
+    def setUp(self):
+        self.usuario = get_user_model().objects.create_user("borra", password="clave-segura-123")
+        self.client.force_login(self.usuario)
+        self.p = Propietario.objects.create(nombre_completo="Rosa Díaz", numero_identificacion="900", numero_contacto="1")
+
+    def inmueble(self, direccion="Calle 1"):
+        return Inmueble.objects.create(propietario=self.p, ciudad="Cali", tipo_inmueble="casa",
+                                       direccion=direccion, valor_transaccion=100)
+
+    def test_propietario_sin_inmuebles(self):
+        resp = self.client.get(reverse("propietario_delete", args=[self.p.pk]))
+        self.assertContains(resp, "Rosa Díaz")
+        self.assertNotContains(resp, "confirmar_inmuebles")
+        resp = self.client.post(reverse("propietario_delete", args=[self.p.pk]))
+        self.assertRedirects(resp, reverse("propietario_list"))
+        self.assertFalse(Propietario.objects.exists())
+
+    def test_propietario_con_inmuebles_pide_confirmacion(self):
+        self.inmueble("Calle 1"); self.inmueble("Calle 2")
+        resp = self.client.get(reverse("propietario_delete", args=[self.p.pk]))
+        self.assertContains(resp, "tiene 2 inmuebles")
+        self.assertContains(resp, "Calle 1")
+        resp = self.client.post(reverse("propietario_delete", args=[self.p.pk]))  # sin marcar la casilla
+        self.assertEqual(resp.status_code, 200)
+        self.assertContains(resp, "Marca la casilla")
+        self.assertEqual(Propietario.objects.count(), 1)
+        self.assertEqual(Inmueble.objects.count(), 2)
+
+    def test_propietario_con_inmuebles_confirmado_borra_todo_y_archivos(self):
+        inm = self.inmueble()
+        foto = Fotografia.objects.create(inmueble=inm, archivo=imagen_de_prueba())
+        doc = Documento.objects.create(inmueble=inm, tipo_documento="escritura", archivo=pdf_de_prueba())
+        rutas = [foto.archivo.path, doc.archivo.path]
+        resp = self.client.post(reverse("propietario_delete", args=[self.p.pk]), {"confirmar_inmuebles": "1"})
+        self.assertRedirects(resp, reverse("propietario_list"))
+        self.assertFalse(Propietario.objects.exists())
+        self.assertFalse(Inmueble.objects.exists())
+        for ruta in rutas:
+            self.assertFalse(os.path.exists(ruta))
+
+    def test_no_afecta_a_otros_propietarios(self):
+        otro = Propietario.objects.create(nombre_completo="Otro", numero_identificacion="901", numero_contacto="1")
+        Inmueble.objects.create(propietario=otro, ciudad="Cali", tipo_inmueble="casa", direccion="X", valor_transaccion=1)
+        self.client.post(reverse("propietario_delete", args=[self.p.pk]))
+        self.assertTrue(Propietario.objects.filter(pk=otro.pk).exists())
+        self.assertEqual(Inmueble.objects.count(), 1)
+
+    def test_botones_eliminar_visibles(self):
+        inm = self.inmueble()
+        self.assertContains(self.client.get(reverse("propietario_list")), reverse("propietario_delete", args=[self.p.pk]))
+        self.assertContains(self.client.get(reverse("propietario_update", args=[self.p.pk])), "Eliminar propietario")
+        self.assertNotContains(self.client.get(reverse("propietario_create")), "Eliminar propietario")
+        self.assertContains(self.client.get(reverse("inmueble_list")), reverse("inmueble_delete", args=[inm.pk]))
+        self.assertContains(self.client.get(reverse("inmueble_update", args=[inm.pk])), "Eliminar inmueble")
+        self.assertNotContains(self.client.get(reverse("inmueble_create")), "Eliminar inmueble")
+
+    def test_requiere_login(self):
+        self.client.logout()
+        resp = self.client.post(reverse("propietario_delete", args=[self.p.pk]))
+        self.assertEqual(resp.status_code, 302)
+        self.assertTrue(Propietario.objects.exists())
