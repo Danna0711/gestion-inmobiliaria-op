@@ -1,0 +1,51 @@
+{% extends "admin/base.html" %}
+{% load static %}
+
+{% block title %}{% if subtitle %}{{ subtitle }} | {% endif %}{{ title }} | {{ site_title|default:"Administración" }}{% endblock %}
+
+{% block extrastyle %}{{ block.super }}
+<style>
+  /* Colores de OP Agente Inmobiliario (verde oliva y dorado del logo) */
+  :root, html[data-theme="light"], html[data-theme="dark"] {
+    --primary: #4A5236;
+    --secondary: #3F4530;
+    --accent: #D4BC7F;
+    --header-bg: #3F4530;
+    --header-color: #F3EBD3;
+    --header-branding-color: #F3EBD3;
+    --header-link-color: #F3EBD3;
+    --breadcrumbs-bg: #4A5236;
+    --breadcrumbs-fg: #E8DDBB;
+    --breadcrumbs-link-fg: #FFFFFF;
+    --button-bg: #4A5236;
+    --button-hover-bg: #3A4129;
+    --default-button-bg: #8C7640;
+    --default-button-hover-bg: #73612F;
+    --selected-row: #F6F1E1;
+  }
+  html[data-theme="light"], :root { --link-fg: #6E5C2A; --link-hover-color: #3F4530; --link-selected-fg: #3F4530; }
+  html[data-theme="dark"] { --link-fg: #D4BC7F; --link-hover-color: #EADBB0; --link-selected-fg: #EADBB0; --selected-row: #2E321F; }
+  @media (prefers-color-scheme: dark) {
+    html:not([data-theme="light"]) { --link-fg: #D4BC7F; --link-hover-color: #EADBB0; --link-selected-fg: #EADBB0; --selected-row: #2E321F; }
+  }
+  #header { border-bottom: 3px solid #A8935B; }
+  #site-name a { display: flex; align-items: center; gap: 12px; }
+  #site-name img { height: 44px; border-radius: 4px; }
+  #site-name .marca { font-weight: 600; letter-spacing: .3px; }
+  .module caption, .module h2, .inline-group h2 { background: var(--primary); }
+  .login #header { justify-content: center; }
+  .login #site-name img { height: 64px; }
+</style>
+{% endblock %}
+
+{% block branding %}
+<div id="site-name">
+  <a href="{% url 'admin:index' %}">
+    <img src="{% static 'inmuebles/logo_op.png' %}" alt="OP Agente Inmobiliario">
+    <span class="marca">Administración</span>
+  </a>
+</div>
+{% if user.is_anonymous %}{% include "admin/color_theme_toggle.html" %}{% endif %}
+{% endblock %}
+
+{% block nav-global %}{% endblock %}

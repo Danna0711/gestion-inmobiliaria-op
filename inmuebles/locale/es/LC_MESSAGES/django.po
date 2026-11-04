@@ -1,0 +1,58 @@
+#
+msgid ""
+msgstr ""
+"Language: es\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Plural-Forms: nplurals=2; plural=(n != 1);\n"
+
+msgid "The app \"%s\" could not be found."
+msgstr "No se encontró la aplicación \"%s\"."
+
+msgid ", "
+msgstr ", "
+
+msgid "Run"
+msgstr "Ejecutar"
+
+msgid "Filter by %(field_name)s"
+msgstr "Filtrar por %(field_name)s"
+
+msgid ""
+"Deleting the %(object_name)s “%(escaped_object)s” would require deleting the"
+" following protected related objects:"
+msgstr ""
+"Eliminar %(object_name)s «%(escaped_object)s» requeriría eliminar los "
+"siguientes objetos relacionados protegidos:"
+
+msgid ""
+"Are you sure you want to delete the %(object_name)s “%(escaped_object)s”? "
+"All of the following related items will be deleted:"
+msgstr ""
+"¿Seguro que deseas eliminar %(object_name)s «%(escaped_object)s»? También se"
+" eliminarán los siguientes elementos relacionados:"
+
+msgid "Pagination %(name)s entries"
+msgstr "Paginación de %(name)s"
+
+msgid "Pagination %(name)s"
+msgstr "Paginación de %(name)s"
+
+msgid "Search %(name)s"
+msgstr "Buscar %(name)s"
+
+msgid "Logout"
+msgstr "Cerrar sesión"
+
+msgid "- Select an option -"
+msgstr "- Selecciona una opción -"
+
+msgid "“%(value)s” is not a valid binary value."
+msgstr "«%(value)s» no es un valor binario válido."
+
+msgid "No %s matches the given query."
+msgstr "No se encontró ningún %s con esos datos."
+
+msgid "…and %(count)d more object."
+msgid_plural "…and %(count)d more objects."
+msgstr[0] "…y %(count)d objeto más."
+msgstr[1] "…y %(count)d objetos más."

@@ -1388,3 +1388,43 @@ class EliminarTests(TestCase):
         resp = self.client.post(reverse("propietario_delete", args=[self.p.pk]))
         self.assertEqual(resp.status_code, 302)
         self.assertTrue(Propietario.objects.exists())
+
+
+# ========================= PANEL DE ADMINISTRACIÓN =========================
+
+class PanelAdministracionTests(TestCase):
+    def setUp(self):
+        self.admin = get_user_model().objects.create_superuser("jefe", "j@x.co", "clave-segura-123")
+        self.client.force_login(self.admin)
+        self.p = Propietario.objects.create(nombre_completo="Ana", numero_identificacion="1", numero_contacto="1")
+
+    def test_identidad_y_nombres_en_espanol(self):
+        resp = self.client.get(reverse("admin:index"))
+        self.assertContains(resp, "Panel de administración")
+        self.assertContains(resp, "Gestión inmobiliaria")
+        for texto in ["Pólizas", "Fotografías", "Documentos legales", "Ofertas comerciales", "Propietarios"]:
+            self.assertContains(resp, texto)
+        self.assertContains(resp, "inmuebles/logo_op.png")
+        self.assertNotContains(resp, "Grupos")
+
+    def test_todas_las_listas_abren(self):
+        for modelo in ["propietario", "inmueble", "poliza", "ofertacomercial", "documento", "fotografia"]:
+            resp = self.client.get(reverse(f"admin:inmuebles_{modelo}_changelist"))
+            self.assertEqual(resp.status_code, 200, modelo)
+            self.assertNotContains(resp, "Select an option")
+
+    def test_crear_inmueble_desde_el_panel_toma_el_valor_de_la_oferta(self):
+        datos = {
+            "propietario": self.p.pk, "ciudad": "Cali", "tipo_inmueble": "casa", "estado": "disponible",
+            "direccion": "Desde el panel", "habitaciones": 0, "banos": 0, "garajes": 0, "depositos": 0,
+            "ofertas-TOTAL_FORMS": "1", "ofertas-INITIAL_FORMS": "0", "ofertas-MIN_NUM_FORMS": "1", "ofertas-MAX_NUM_FORMS": "1000",
+            "ofertas-0-modalidad": "venta", "ofertas-0-valor": "450000000",
+        }
+        for pref in ["fotografias", "documentos", "polizas"]:
+            datos.update({f"{pref}-TOTAL_FORMS": "0", f"{pref}-INITIAL_FORMS": "0",
+                          f"{pref}-MIN_NUM_FORMS": "0", f"{pref}-MAX_NUM_FORMS": "1000"})
+        resp = self.client.post(reverse("admin:inmuebles_inmueble_add"), datos)
+        self.assertEqual(resp.status_code, 302, resp.content[:3000])
+        inm = Inmueble.objects.get(direccion="Desde el panel")
+        self.assertEqual(inm.valor_transaccion, 450000000)
+        self.assertEqual(inm.ofertas.count(), 1)
