@@ -1,11 +1,13 @@
 {% extends "inmuebles/base.html" %}
+{% load static %}
 {% block title %}Ingresar · OP Agente Inmobiliario{% endblock %}
 {% block content %}
 <div class="row justify-content-center">
   <div class="col-md-5 col-lg-4">
     <div class="card shadow-sm">
       <div class="card-body p-4">
-        <h1 class="h4 mb-3">Ingresar al sistema</h1>
+        <img class="login-logo" src="{% static 'inmuebles/logo_op.png' %}" alt="OP Agente Inmobiliario">
+        <h1 class="h4 mb-3 text-center">Ingresar al sistema</h1>
         {% if form.errors %}
           <div class="alert alert-danger">Usuario o contraseña incorrectos.</div>
         {% endif %}

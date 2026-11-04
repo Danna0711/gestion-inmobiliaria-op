@@ -1,0 +1,88 @@
+/* Colores de marca de OP Agente Inmobiliario: verde oliva y dorado del logo.
+   Se carga después de Bootstrap y cambia sus colores en todo el sistema. */
+:root {
+  --op-verde: #4A5236;
+  --op-verde-oscuro: #3F4530;
+  --op-verde-hover: #3A4129;
+  --op-dorado: #A8935B;
+  --op-dorado-oscuro: #8C7640;
+  --op-dorado-hover: #73612F;
+  --op-crema: #F6F1E1;
+  --op-fondo: #F7F6F1;
+
+  --bs-primary: #4A5236;
+  --bs-primary-rgb: 74, 82, 54;
+  --bs-link-color: #6E5C2A;
+  --bs-link-color-rgb: 110, 92, 42;
+  --bs-link-hover-color: #3F4530;
+  --bs-link-hover-color-rgb: 63, 69, 48;
+  --bs-focus-ring-color: rgba(168, 147, 91, .35);
+}
+
+body.bg-light { background-color: var(--op-fondo) !important; }
+
+/* Barra superior */
+.navbar-op { background: var(--op-verde-oscuro); border-bottom: 3px solid var(--op-dorado); }
+.navbar-op .navbar-brand { display: flex; align-items: center; gap: .6rem; color: #F3EBD3; font-weight: 600; }
+.navbar-op .navbar-brand img { height: 40px; border-radius: 4px; }
+.navbar-op .nav-link { color: rgba(243, 235, 211, .8); }
+.navbar-op .nav-link:hover, .navbar-op .nav-link.active { color: #D4BC7F; }
+.navbar-op .navbar-text { color: rgba(243, 235, 211, .75); }
+
+/* Botones principales: verde de marca */
+.btn-primary {
+  --bs-btn-bg: var(--op-verde); --bs-btn-border-color: var(--op-verde);
+  --bs-btn-hover-bg: var(--op-verde-hover); --bs-btn-hover-border-color: var(--op-verde-hover);
+  --bs-btn-active-bg: var(--op-verde-hover); --bs-btn-active-border-color: var(--op-verde-hover);
+  --bs-btn-disabled-bg: var(--op-verde); --bs-btn-disabled-border-color: var(--op-verde);
+  --bs-btn-focus-shadow-rgb: 168, 147, 91;
+}
+.btn-outline-primary {
+  --bs-btn-color: var(--op-verde); --bs-btn-border-color: var(--op-verde);
+  --bs-btn-hover-bg: var(--op-verde); --bs-btn-hover-border-color: var(--op-verde); --bs-btn-hover-color: #fff;
+  --bs-btn-active-bg: var(--op-verde-hover); --bs-btn-active-border-color: var(--op-verde-hover);
+  --bs-btn-focus-shadow-rgb: 168, 147, 91;
+}
+
+/* Botones de la ficha (compartir, ver, descargar): dorado de marca */
+.btn-success {
+  --bs-btn-bg: var(--op-dorado-oscuro); --bs-btn-border-color: var(--op-dorado-oscuro);
+  --bs-btn-hover-bg: var(--op-dorado-hover); --bs-btn-hover-border-color: var(--op-dorado-hover);
+  --bs-btn-active-bg: var(--op-dorado-hover); --bs-btn-active-border-color: var(--op-dorado-hover);
+  --bs-btn-disabled-bg: var(--op-dorado-oscuro); --bs-btn-disabled-border-color: var(--op-dorado-oscuro);
+  --bs-btn-focus-shadow-rgb: 168, 147, 91;
+}
+.btn-outline-success {
+  --bs-btn-color: var(--op-dorado-oscuro); --bs-btn-border-color: var(--op-dorado);
+  --bs-btn-hover-bg: var(--op-dorado-oscuro); --bs-btn-hover-border-color: var(--op-dorado-oscuro); --bs-btn-hover-color: #fff;
+  --bs-btn-active-bg: var(--op-dorado-hover); --bs-btn-active-border-color: var(--op-dorado-hover);
+  --bs-btn-focus-shadow-rgb: 168, 147, 91;
+}
+
+/* Tarjetas y tablas */
+.card-header { background: var(--op-verde); color: #F3EBD3; border-bottom: 2px solid var(--op-dorado); }
+.card-header a:not(.btn) { color: #F3EBD3; }
+.card-header .btn-primary { --bs-btn-bg: var(--op-dorado-oscuro); --bs-btn-border-color: var(--op-dorado-oscuro);
+  --bs-btn-hover-bg: var(--op-dorado-hover); --bs-btn-hover-border-color: var(--op-dorado-hover); }
+.table-light { --bs-table-bg: var(--op-crema); --bs-table-color: var(--op-verde-oscuro); }
+.table-hover > tbody > tr:hover > * { --bs-table-bg-state: rgba(168, 147, 91, .08); }
+.badge.text-bg-secondary { background-color: var(--op-verde) !important; }
+
+/* Formularios */
+.form-control:focus, .form-select:focus { border-color: var(--op-dorado); box-shadow: 0 0 0 .25rem rgba(168, 147, 91, .25); }
+.form-check-input:checked { background-color: var(--op-verde); border-color: var(--op-verde); }
+.form-check-input:focus { border-color: var(--op-dorado); box-shadow: 0 0 0 .25rem rgba(168, 147, 91, .25); }
+
+/* Paginación */
+.pagination { --bs-pagination-color: var(--op-verde); --bs-pagination-hover-color: var(--op-verde-oscuro);
+  --bs-pagination-active-bg: var(--op-verde); --bs-pagination-active-border-color: var(--op-verde);
+  --bs-pagination-focus-box-shadow: 0 0 0 .25rem rgba(168, 147, 91, .25); }
+
+/* Títulos de página */
+h1.h3, h1.h4 { color: var(--op-verde-oscuro); }
+
+/* Inicio de sesión */
+.login-logo { display: block; margin: 0 auto 1rem; width: 200px; max-width: 70%; border-radius: 6px; }
+
+/* Los botones no se parten en dos líneas */
+.btn { white-space: nowrap; }
