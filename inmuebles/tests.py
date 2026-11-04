@@ -1428,3 +1428,16 @@ class PanelAdministracionTests(TestCase):
         inm = Inmueble.objects.get(direccion="Desde el panel")
         self.assertEqual(inm.valor_transaccion, 450000000)
         self.assertEqual(inm.ofertas.count(), 1)
+
+
+class BotonVolverAlSistemaTests(TestCase):
+    def test_boton_en_el_panel(self):
+        admin = get_user_model().objects.create_superuser("jefe2", "j2@x.co", "clave-segura-123")
+        self.client.force_login(admin)
+        for url in [reverse("admin:index"), reverse("admin:inmuebles_inmueble_changelist")]:
+            resp = self.client.get(url)
+            self.assertContains(resp, "Ir al sistema OP")
+            self.assertContains(resp, f'href="{reverse("inmueble_list")}"')
+
+    def test_no_aparece_en_el_ingreso_del_panel(self):
+        self.assertNotContains(self.client.get(reverse("admin:login")), "Ir al sistema OP")

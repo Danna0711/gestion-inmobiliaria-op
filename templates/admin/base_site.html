@@ -33,6 +33,13 @@
   #site-name img { height: 44px; border-radius: 4px; }
   #site-name .marca { font-weight: 600; letter-spacing: .3px; }
   .module caption, .module h2, .inline-group h2 { background: var(--primary); }
+  #branding { display: flex; align-items: center; gap: 24px; flex-wrap: wrap; }
+  .volver-op, .volver-op:link, .volver-op:visited {
+    display: inline-block; padding: 8px 16px; border-radius: 6px;
+    background: #A8935B; color: #FFFFFF !important; font-weight: 600; font-size: 0.95rem;
+    text-decoration: none; white-space: nowrap;
+  }
+  .volver-op:hover, .volver-op:focus { background: #8C7640; color: #FFFFFF !important; text-decoration: none; }
   .login #header { justify-content: center; }
   .login #site-name img { height: 64px; }
 </style>
@@ -45,6 +52,9 @@
     <span class="marca">Administración</span>
   </a>
 </div>
+{% if not user.is_anonymous %}
+<a class="volver-op" href="{% url 'inmueble_list' %}" title="Ir a la pantalla de inicio del sistema">&#8592; Ir al sistema OP</a>
+{% endif %}
 {% if user.is_anonymous %}{% include "admin/color_theme_toggle.html" %}{% endif %}
 {% endblock %}
 
