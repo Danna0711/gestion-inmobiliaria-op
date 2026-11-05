@@ -48,7 +48,7 @@ La empresa administraba la información de sus inmuebles en hojas de cálculo, c
 | SQLite | incluida | Base de datos |
 | Pillow | 12 o superior | Validación y reducción de imágenes |
 | xhtml2pdf | 0.2.27 | Generación de la ficha en PDF (incluye pypdf y reportlab, usados para la marca de agua) |
-| Bootstrap | 5.3.3 (CDN) | Diseño de la interfaz, adaptable a celular |
+| Bootstrap | 5.3.3 (CDN) | Diseño de la interfaz web |
 
 ## Arquitectura y modelo de datos
 
@@ -156,9 +156,9 @@ Con el modo de producción activo: `DEBUG` desactivado, solo HTTPS, cookies segu
 |---|---|
 | ![Ingreso](docs/capturas/ingreso.png) | ![Detalle](docs/capturas/detalle_inmueble.png) |
 
-| Ficha en PDF ([ver ejemplo](docs/ficha_ejemplo.pdf)) | Vista en celular |
-|---|---|
-| ![Ficha PDF](docs/capturas/ficha_pdf.png) | ![Celular](docs/capturas/vista_celular.png) |
+   Ficha en PDF ([ver ejemplo](docs/ficha_ejemplo.pdf)):
+
+    ![Ficha PDF](docs/capturas/ficha_pdf.png)|
 
 Panel de administración:
 
