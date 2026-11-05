@@ -241,7 +241,8 @@ class PropietarioListView(LoginRequiredMixin, ListView):
     paginate_by = 20
 
     def get_queryset(self):
-        qs = Propietario.objects.order_by("nombre_completo")
+        # El número de inmuebles se calcula en la misma consulta (evita una consulta por fila)
+        qs = Propietario.objects.annotate(num_inmuebles=Count("inmuebles")).order_by("nombre_completo")
         q = self.request.GET.get("q", "").strip()
         if q:
             qs = qs.filter(

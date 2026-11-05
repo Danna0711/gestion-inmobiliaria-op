@@ -11,10 +11,12 @@ Proyecto de práctica profesional de **Danna Valentina Betancourt Pico**, Ingeni
 - [Problema que resuelve](#problema-que-resuelve)
 - [Funcionalidades](#funcionalidades)
 - [Tecnologías](#tecnologías)
+- [Priorización de requerimientos (MoSCoW)](#priorización-de-requerimientos-moscow)
 - [Arquitectura y modelo de datos](#arquitectura-y-modelo-de-datos)
 - [Estructura del proyecto](#estructura-del-proyecto)
 - [Instalación y ejecución](#instalación-y-ejecución)
 - [Pruebas](#pruebas)
+- [Métricas de rendimiento](#métricas-de-rendimiento)
 - [Publicación en producción](#publicación-en-producción)
 - [Capturas](#capturas)
 - [Estado del proyecto](#estado-del-proyecto)
@@ -50,30 +52,37 @@ La empresa administraba la información de sus inmuebles en hojas de cálculo, c
 | xhtml2pdf | 0.2.27 | Generación de la ficha en PDF (incluye pypdf y reportlab, usados para la marca de agua) |
 | Bootstrap | 5.3.3 (CDN) | Diseño de la interfaz web |
 
+## Priorización de requerimientos (MoSCoW)
+
+Los 17 requerimientos funcionales, los 4 no funcionales y los ajustes acordados con la empresa se priorizaron con el método MoSCoW. La matriz completa, con la justificación de cada uno, está en [docs/moscow.md](docs/moscow.md).
+
+| Prioridad | Qué incluye | Estado |
+|---|---|---|
+| **Must have** (14) | Registro de inmuebles (RF01, RF02, RF04, RF07, RF16), ofertas comerciales, propietarios (RF08, RF09), fotografías (RF10), documentos legales (RF11), búsqueda (RF14), ficha PDF (RF15), acceso web (RNF01) y seguridad (RNF04) | Implementado |
+| **Should have** (9) | Zonas comunes (RF03), matrículas (RF05), datos de bodega y local (RF06), pólizas y alertas (RF12, RF13), información adicional (RF17), facilidad de uso (RNF02), rendimiento (RNF03) y compartir la ficha | Implementado |
+| **Could have** (5) | Panel de administración con la marca, logo y marca de agua en el PDF, reducción automática de fotos, ordenamiento del listado y colores de la marca | Implementado |
+| **Won't have** (6) | Aplicación móvil nativa, roles por asesor, registro de clientes, publicación en portales, envíos automáticos y dominio propio | Fuera del alcance de esta versión |
+
 ## Arquitectura y modelo de datos
 
-Arquitectura en capas con el patrón **Modelo-Vista-Plantilla (MVT)** de Django:
+Arquitectura en capas con el patrón **Modelo-Vista-Plantilla (MVT)** de Django. El usuario entra desde el navegador; cada petición pasa por el enrutamiento y la capa de seguridad (sesión obligatoria) antes de llegar a las vistas, que usan el ORM para leer y guardar en SQLite. Las fotografías y documentos se guardan en `media/` y solo se entregan con sesión iniciada.
 
-```
-Navegador ──► Plantillas (Django Templates + Bootstrap)
-                 │
-                 ▼
-             Vistas (lógica de negocio: validación, filtros, PDF, alertas)
-                 │
-                 ▼
-             ORM de Django (models.py) ──► Base de datos SQLite
-                 │
-                 └──► Carpeta media/ (fotografías y documentos)
-```
+![Diagrama de arquitectura](docs/diagramas/arquitectura.png)
 
-Entidades:
+**Modelo de datos.** Seis entidades. El inmueble es el centro: pertenece a un propietario y tiene sus ofertas comerciales, fotografías, documentos y pólizas (todas relaciones 1 a N).
 
-```
-Propietario 1 ──── N Inmueble 1 ──── N OfertaComercial
-                            ├── N Fotografia
-                            ├── N Documento
-                            └── N Poliza
-```
+![Diagrama entidad-relación](docs/diagramas/der.png)
+
+| Entidad | Campos (con id) | Descripción |
+|---|:---:|---|
+| Propietario | 5 | Dueño del inmueble. Número de identificación único. |
+| Inmueble | 48 | Ficha única para todos los tipos: captación, ubicación, áreas, zonas comunes, valores, matrículas y datos de bodega. |
+| OfertaComercial | 10 | Venta o arriendo, con área, valor, IVA y administración. Todo inmueble tiene al menos una. |
+| Fotografia | 4 | Imagen con etiqueta por área (fachada, sala, cocina…). |
+| Documento | 4 | Escritura, certificado de tradición, predial, planos, contrato u otro. |
+| Poliza | 7 | Nombre, valor, vencimiento, número de contrato y documento adjunto. |
+
+Los diagramas también están en SVG (`docs/diagramas/*.svg`) para ampliarlos sin perder calidad.
 
 ## Estructura del proyecto
 
@@ -83,7 +92,7 @@ gestion-inmobiliaria-op/
 ├── requirements.txt
 ├── gestion_inmobiliaria/        # Configuración (settings.py, urls.py)
 ├── templates/admin/             # Personalización del panel de administración
-├── docs/                        # Capturas y ficha de ejemplo para este README
+├── docs/                        # Capturas, diagramas, matriz MoSCoW, métricas y ficha de ejemplo
 └── inmuebles/                   # Aplicación principal
     ├── models.py                # Entidades
     ├── views.py                 # Lógica de cada pantalla
@@ -131,12 +140,27 @@ Luego abrir **http://127.0.0.1:8000** para el sistema y **http://127.0.0.1:8000/
 
 ## Pruebas
 
-El sistema cuenta con **135 pruebas automáticas** que cubren los 17 requerimientos funcionales, la seguridad de acceso y los 5 casos de uso. Usan una base de datos y una carpeta de archivos temporales, por lo que no modifican los datos reales.
+El sistema cuenta con **137 pruebas automáticas** que cubren los 17 requerimientos funcionales, la seguridad de acceso, los 5 casos de uso y el número de consultas de los listados. La cobertura de código es del **95 %**. Usan una base de datos y una carpeta de archivos temporales, por lo que no modifican los datos reales.
 
 ```bash
 python manage.py test inmuebles          # resumen
 python manage.py test inmuebles -v 2     # detalle de cada prueba
 ```
+
+## Métricas de rendimiento
+
+Medición local del 04/11/2026 con 100 inmuebles, 300 fotografías y `DEBUG` desactivado (detalle, método y cómo repetirla en [docs/metricas.md](docs/metricas.md)):
+
+| Vista | Tiempo de respuesta (mediana) | Percentil 95 | Consultas SQL |
+|---|---:|---:|---:|
+| Listado de inmuebles | 11,9 ms | 19,6 ms | 6 |
+| Listado con 6 filtros combinados | 12,4 ms | 18,9 ms | 6 |
+| Detalle de inmueble | 6,3 ms | 7,0 ms | 9 |
+| Registrar inmueble con una oferta | 7,3 ms | 11,0 ms | 8 |
+| Alertas de pólizas | 5,1 ms | 5,7 ms | 4 |
+| Ficha PDF con 3 fotografías (240 KB) | 350,8 ms | 361,6 ms | 5 |
+
+Todas las pantallas responden en menos de 30 ms en el servidor y la ficha PDF en menos de medio segundo. La medición detectó consultas repetidas en el listado de propietarios: se corrigió y bajó de 24 a 4 consultas. Las métricas de Lighthouse se toman sobre el sitio publicado (ver [docs/metricas.md](docs/metricas.md#5-lighthouse-en-el-sitio-publicado)).
 
 ## Publicación en producción
 
@@ -156,9 +180,9 @@ Con el modo de producción activo: `DEBUG` desactivado, solo HTTPS, cookies segu
 |---|---|
 | ![Ingreso](docs/capturas/ingreso.png) | ![Detalle](docs/capturas/detalle_inmueble.png) |
 
-   Ficha en PDF ([ver ejemplo](docs/ficha_ejemplo.pdf)):
+Ficha en PDF ([ver ejemplo](docs/ficha_ejemplo.pdf)):
 
-    ![Ficha PDF](docs/capturas/ficha_pdf.png)|
+![Ficha PDF](docs/capturas/ficha_pdf.png)
 
 Panel de administración:
 

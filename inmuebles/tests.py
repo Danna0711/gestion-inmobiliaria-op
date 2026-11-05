@@ -1441,3 +1441,43 @@ class BotonVolverAlSistemaTests(TestCase):
 
     def test_no_aparece_en_el_ingreso_del_panel(self):
         self.assertNotContains(self.client.get(reverse("admin:login")), "Ir al sistema OP")
+
+
+class RendimientoListadosTests(TestCase):
+    """Las consultas SQL de los listados no deben crecer con el número de filas (evita el problema N+1)."""
+
+    @classmethod
+    def setUpTestData(cls):
+        cls.usuario = get_user_model().objects.create_user("rendimiento", password="clave-segura-123")
+
+    def setUp(self):
+        self.client.force_login(self.usuario)
+
+    def _crear_propietarios(self, cantidad, inicio):
+        for i in range(inicio, inicio + cantidad):
+            p = Propietario.objects.create(nombre_completo=f"Propietario {i}", numero_identificacion=str(9000 + i))
+            Inmueble.objects.create(propietario=p, ciudad="Bogotá", tipo_inmueble="casa", direccion=f"Calle {i}",
+                                    valor_transaccion=300000000)
+
+    def _consultas(self, url):
+        from django.db import connection
+        from django.test.utils import CaptureQueriesContext
+        with CaptureQueriesContext(connection) as ctx:
+            resp = self.client.get(url)
+        self.assertEqual(resp.status_code, 200)
+        return len(ctx.captured_queries), resp
+
+    def test_listado_propietarios_consultas_constantes(self):
+        self._crear_propietarios(2, 0)
+        pocas, _ = self._consultas(reverse("propietario_list"))
+        self._crear_propietarios(15, 2)
+        muchas, resp = self._consultas(reverse("propietario_list"))
+        self.assertEqual(pocas, muchas)
+        self.assertEqual(resp.context["propietarios"][0].num_inmuebles, 1)
+
+    def test_listado_inmuebles_consultas_constantes(self):
+        self._crear_propietarios(2, 0)
+        pocas, _ = self._consultas(reverse("inmueble_list"))
+        self._crear_propietarios(12, 2)
+        muchas, _ = self._consultas(reverse("inmueble_list"))
+        self.assertEqual(pocas, muchas)

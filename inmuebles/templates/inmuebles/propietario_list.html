@@ -31,7 +31,7 @@
           <td>{{ p.numero_identificacion }}</td>
           <td>{{ p.numero_contacto }}</td>
           <td>{{ p.correo|default:"—" }}</td>
-          <td class="text-center">{{ p.inmuebles.count }}</td>
+          <td class="text-center">{{ p.num_inmuebles }}</td>
           <td class="text-end text-nowrap">
             <a class="btn btn-sm btn-outline-primary" href="{% url 'propietario_update' p.pk %}">Editar</a>
             <a class="btn btn-sm btn-outline-danger" href="{% url 'propietario_delete' p.pk %}">Eliminar</a>
