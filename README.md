@@ -61,7 +61,7 @@ Los 17 requerimientos funcionales, los 4 no funcionales y los ajustes acordados 
 | **Must have** (14) | Registro de inmuebles (RF01, RF02, RF04, RF07, RF16), ofertas comerciales, propietarios (RF08, RF09), fotografías (RF10), documentos legales (RF11), búsqueda (RF14), ficha PDF (RF15), acceso web (RNF01) y seguridad (RNF04) | Implementado |
 | **Should have** (9) | Zonas comunes (RF03), matrículas (RF05), datos de bodega y local (RF06), pólizas y alertas (RF12, RF13), información adicional (RF17), facilidad de uso (RNF02), rendimiento (RNF03) y compartir la ficha | Implementado |
 | **Could have** (5) | Panel de administración con la marca, logo y marca de agua en el PDF, reducción automática de fotos, ordenamiento del listado y colores de la marca | Implementado |
-| **Won't have** (6) | Aplicación móvil nativa, roles por asesor, registro de clientes, publicación en portales, envíos automáticos y dominio propio | Fuera del alcance de esta versión |
+| **Won't have** (5) | Roles por asesor, registro de clientes, publicación en portales, envíos automáticos y dominio propio | Fuera del alcance de esta versión |
 
 ## Arquitectura y modelo de datos
 
@@ -140,7 +140,7 @@ Luego abrir **http://127.0.0.1:8000** para el sistema y **http://127.0.0.1:8000/
 
 ## Pruebas
 
-El sistema cuenta con **137 pruebas automáticas** que cubren los 17 requerimientos funcionales, la seguridad de acceso, los 5 casos de uso y el número de consultas de los listados. La cobertura de código es del **95 %**. Usan una base de datos y una carpeta de archivos temporales, por lo que no modifican los datos reales.
+El sistema cuenta con **137 pruebas automáticas**: 135 funcionales, que cubren los 17 requerimientos funcionales, la seguridad de acceso y los 5 casos de uso, y 2 de rendimiento, que controlan el número de consultas de los listados. La cobertura de código es del **95 %**. Usan una base de datos y una carpeta de archivos temporales, por lo que no modifican los datos reales.
 
 ```bash
 python manage.py test inmuebles          # resumen
@@ -149,7 +149,7 @@ python manage.py test inmuebles -v 2     # detalle de cada prueba
 
 ## Métricas de rendimiento
 
-Medición local del 04/11/2026 con 100 inmuebles, 300 fotografías y `DEBUG` desactivado (detalle, método y cómo repetirla en [docs/metricas.md](docs/metricas.md)):
+Medición del 04/11/2026 en un entorno de desarrollo Linux (no en el equipo Windows de la estudiante), con 100 inmuebles, 300 fotografías y `DEBUG` desactivado. Los tiempos cambian según el equipo; la cantidad de consultas SQL no. Detalle, método y cómo repetirla en [docs/metricas.md](docs/metricas.md):
 
 | Vista | Tiempo de respuesta (mediana) | Percentil 95 | Consultas SQL |
 |---|---:|---:|---:|

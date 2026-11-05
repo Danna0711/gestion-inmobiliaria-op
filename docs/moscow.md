@@ -16,7 +16,7 @@ Priorización de los requerimientos del **Sistema de Gestión Inmobiliaria OP**,
 | RF01 | Registrar inmueble con datos de captación (ID, fecha, agente, ciudad, tipo) | **M** | Es el registro base de todo el sistema. | CU01 | Implementado |
 | RF02 | Ubicación y áreas (departamento, barrio, dirección, conjunto, estrato, piso, áreas) | **M** | Sin ubicación ni áreas no se puede ofrecer el inmueble. | CU01 | Implementado |
 | RF04 | Valores de la transacción (precio o canon, administración, margen, predial) | **M** | El precio es el dato que más consultan los clientes. Se amplió a ofertas comerciales. | CU01 | Implementado |
-| — | Ofertas comerciales: una o varias por inmueble, venta o arriendo, IVA calculado | **M** | Acordado con la empresa el 03/11/2026: todo inmueble debe tener al menos una oferta. | CU01 | Implementado |
+| — | Ofertas comerciales: una o varias por inmueble, venta o arriendo, IVA calculado | **M** | Acordado con la empresa el 23/10/2026: todo inmueble debe tener al menos una oferta. | CU01 | Implementado |
 | RF07 | Estado del inmueble (disponible, reservado, vendido, arrendado) | **M** | Evita ofrecer inmuebles que ya no están disponibles. | CU01 | Implementado |
 | RF08 | Registro de propietarios | **M** | La empresa necesita saber de quién es cada inmueble. | CU01 | Implementado |
 | RF09 | Un propietario con varios inmuebles | **M** | Caso frecuente en la empresa (relación 1 a N). | CU01 | Implementado |
@@ -41,7 +41,6 @@ Priorización de los requerimientos del **Sistema de Gestión Inmobiliaria OP**,
 | — | Reducción automática de fotos (máx. 1.920 px) | **C** | Ahorra espacio en el servidor y hace la ficha más liviana. | CU02 | Implementado |
 | — | Ordenamiento del listado (precio, habitaciones) | **C** | Facilita comparar inmuebles. | CU04 | Implementado |
 | — | Colores de la marca en todo el sistema | **C** | Coherencia visual con la empresa. | — | Implementado |
-| — | Aplicación móvil nativa | **W** | El alcance acordado es un sistema web. | — | Fuera de alcance |
 | — | Roles y permisos diferenciados por asesor | **W** | Hoy todos los usuarios de la empresa ven la misma información. | — | Trabajo futuro |
 | — | Registro de clientes interesados (CRM) | **W** | No hace parte del problema planteado. | — | Trabajo futuro |
 | — | Publicación automática en portales inmobiliarios o enlace público | **W** | Expondría información fuera de la empresa. | — | Trabajo futuro |
@@ -55,6 +54,6 @@ Priorización de los requerimientos del **Sistema de Gestión Inmobiliaria OP**,
 | Must have | 14 | 14 |
 | Should have | 9 | 9 |
 | Could have | 5 | 5 |
-| Won't have | 6 | — |
+| Won't have | 5 | — |
 
 Todos los requerimientos M, S y C están implementados y tienen pruebas automáticas. La clasificación se construyó a partir del alcance acordado con OP Agente Inmobiliario (ACT1 a ACT3) y de los ajustes pedidos por la empresa durante el desarrollo.

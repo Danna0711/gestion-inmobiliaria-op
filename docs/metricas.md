@@ -4,7 +4,9 @@ Este documento reúne las métricas cuantitativas del **Sistema de Gestión Inmo
 
 Hay dos grupos:
 
-1. **Métricas locales** (sección 1 a 4): medidas el 04/11/2026 en el entorno de desarrollo, con el script [`metricas/medir_rendimiento.py`](metricas/medir_rendimiento.py). Cualquiera puede repetirlas.
+1. **Métricas locales** (secciones 1 a 4): medidas el 04/11/2026 en un entorno de desarrollo Linux con el script [`metricas/medir_rendimiento.py`](metricas/medir_rendimiento.py). Cualquiera puede repetirlas en su propio equipo.
+
+> **Importante:** los tiempos en milisegundos dependen de la máquina donde se mide. En el equipo Windows de la estudiante o en PythonAnywhere los valores serán distintos. Lo que no cambia es la cantidad de consultas SQL por pantalla ni el tamaño de las respuestas. Por eso son la referencia principal para comparar.
 2. **Métricas en el sitio publicado** con Lighthouse (sección 5): se toman en `https://opagente.pythonanywhere.com` después de la publicación.
 
 ## 1. Entorno y datos de prueba
@@ -13,7 +15,7 @@ Hay dos grupos:
 |---|---|
 | Fecha | 04/11/2026 |
 | Software | Python 3.13, Django 6.1.3, SQLite, `DEBUG = False` |
-| Equipo | Servidor Linux de desarrollo, 2 núcleos |
+| Equipo | Entorno de desarrollo en la nube con Linux y 2 núcleos, usado durante la construcción del sistema. **No es el equipo Windows de la estudiante** ni el servidor de publicación. |
 | Datos cargados | 100 inmuebles, 25 propietarios, 195 ofertas comerciales, 300 fotografías (3 por inmueble, 1.920 × 1.280 px, ~312 KB cada una) y 34 pólizas |
 | Repeticiones | 30 por vista (10 para la ficha PDF), después de 3 peticiones de calentamiento |
 | Forma de medir | Cliente de pruebas de Django: mide el tiempo que tarda el servidor en procesar la petición (consultas, lógica y plantilla). No incluye la red ni la descarga de Bootstrap, que se miden con Lighthouse. |
@@ -55,7 +57,7 @@ Se agregaron dos pruebas automáticas (`RendimientoListadosTests`). Comprueban q
 
 | Métrica | Valor |
 |---|---|
-| Pruebas automáticas | **137**, todas aprobadas |
+| Pruebas automáticas | **137**, todas aprobadas (135 funcionales y 2 de rendimiento) |
 | Cobertura de código de la aplicación | **95 %** (1.096 líneas, 59 sin ejecutar) |
 | `views.py` | 98 % |
 | `ficha.py`, `forms.py`, `models.py`, `formato.py` | 97 % |
@@ -98,4 +100,4 @@ Desde la carpeta del proyecto, con el entorno virtual activo:
 python docs/metricas/medir_rendimiento.py
 ```
 
-El script crea una base de datos y una carpeta de archivos temporales (no modifica `db.sqlite3` ni `media/`). Carga los datos de prueba, mide cada vista y guarda los resultados en `docs/metricas/metricas_locales.json`. Los valores cambian según el equipo, pero la cantidad de consultas SQL debe ser la misma.
+El script crea una base de datos y una carpeta de archivos temporales (no modifica `db.sqlite3` ni `media/`). Carga los datos de prueba, mide cada vista y guarda los resultados en `docs/metricas/metricas_locales.json`. Los tiempos cambian según el equipo (Windows, Linux, servidor de publicación), pero la cantidad de consultas SQL debe ser la misma.
