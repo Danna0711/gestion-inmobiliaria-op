@@ -7,7 +7,7 @@ Hay dos grupos:
 1. **Métricas locales** (secciones 1 a 4): medidas el 04/11/2026 en un entorno de desarrollo Linux con el script [`metricas/medir_rendimiento.py`](metricas/medir_rendimiento.py). Cualquiera puede repetirlas en su propio equipo.
 
 > **Importante:** los tiempos en milisegundos dependen de la máquina donde se mide. En el equipo Windows de la estudiante o en PythonAnywhere los valores serán distintos. Lo que no cambia es la cantidad de consultas SQL por pantalla ni el tamaño de las respuestas. Por eso son la referencia principal para comparar.
-2. **Métricas en el sitio publicado** con Lighthouse (sección 5): se toman en `https://opagente.pythonanywhere.com` después de la publicación.
+2. **Métricas en el sitio publicado** con Lighthouse (sección 5): se toman en `https://opagenteinmobiliario.pythonanywhere.com` después de la publicación.
 
 ## 1. Entorno y datos de prueba
 
@@ -77,7 +77,7 @@ Lighthouse mide lo que vive el usuario en el navegador: carga de la página, acc
 
 **Cómo medir** (Google Chrome en computador):
 
-1. Abrir `https://opagente.pythonanywhere.com` e iniciar sesión.
+1. Abrir `https://opagenteinmobiliario.pythonanywhere.com` e iniciar sesión.
 2. Ir a la pantalla que se va a medir y abrir las herramientas de desarrollador (F12) → pestaña **Lighthouse**.
 3. Modo **Navegación**, dispositivo **Escritorio** y categorías Rendimiento, Accesibilidad, Prácticas recomendadas y SEO.
 4. En el engranaje de configuración, **desmarcar «Borrar almacenamiento»** (*Clear storage*). Si queda marcado, Lighthouse cierra la sesión y mide la pantalla de ingreso.

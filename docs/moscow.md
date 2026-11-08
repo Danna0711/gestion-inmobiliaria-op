@@ -1,6 +1,6 @@
 # Matriz de priorización MoSCoW
 
-Priorización de los requerimientos del **Sistema de Gestión Inmobiliaria OP**, construida a partir del documento de requerimientos (ACT2: RF01–RF17 y RNF01–RNF04), de la especificación de casos de uso (ACT3: CU01–CU05) y de los ajustes acordados con OP Agente Inmobiliario durante el desarrollo.
+Priorización de los requerimientos del **Sistema de Gestión Inmobiliaria OP**, construida a partir del documento de requerimientos (ACT2: RF01–RF17 y RNF01–RNF04), de la especificación de casos de uso (ACT3: CU01–CU05) y de los ajustes acordados con OP Agente Inmobiliario durante el desarrollo. Las funciones que no figuraban en la ACT2 y se incorporaron sobre la marcha recibieron identificadores nuevos a continuación de los de la Entrega 1: RF18–RF26 y RNF05–RNF07 (ver [Incorporados durante el desarrollo](#incorporados-durante-el-desarrollo)).
 
 | Categoría | Significado en este proyecto |
 |---|---|
@@ -16,7 +16,7 @@ Priorización de los requerimientos del **Sistema de Gestión Inmobiliaria OP**,
 | RF01 | Registrar inmueble con datos de captación (ID, fecha, agente, ciudad, tipo) | **M** | Es el registro base de todo el sistema. | CU01 | Implementado |
 | RF02 | Ubicación y áreas (departamento, barrio, dirección, conjunto, estrato, piso, áreas) | **M** | Sin ubicación ni áreas no se puede ofrecer el inmueble. | CU01 | Implementado |
 | RF04 | Valores de la transacción (precio o canon, administración, margen, predial) | **M** | El precio es el dato que más consultan los clientes. Se amplió a ofertas comerciales. | CU01 | Implementado |
-| — | Ofertas comerciales: una o varias por inmueble, venta o arriendo, IVA calculado | **M** | Acordado con la empresa el 23/10/2026: todo inmueble debe tener al menos una oferta. | CU01 | Implementado |
+| RF18 | Ofertas comerciales: una o varias por inmueble, venta o arriendo, IVA calculado | **M** | Acordado con la empresa el 23/10/2026: todo inmueble debe tener al menos una oferta. | CU01 | Implementado |
 | RF07 | Estado del inmueble (disponible, reservado, vendido, arrendado) | **M** | Evita ofrecer inmuebles que ya no están disponibles. | CU01 | Implementado |
 | RF08 | Registro de propietarios | **M** | La empresa necesita saber de quién es cada inmueble. | CU01 | Implementado |
 | RF09 | Un propietario con varios inmuebles | **M** | Caso frecuente en la empresa (relación 1 a N). | CU01 | Implementado |
@@ -35,17 +35,32 @@ Priorización de los requerimientos del **Sistema de Gestión Inmobiliaria OP**,
 | RF17 | Información adicional de texto libre | **S** | Recoge lo que no tiene un campo propio. | CU01 | Implementado |
 | RNF02 | Interfaz sencilla para usuarios sin conocimientos técnicos | **S** | Condición para que los asesores adopten el sistema. | Todos | Implementado |
 | RNF03 | Rendimiento: registrar datos sin degradar las consultas | **S** | Se verifica con las [métricas de rendimiento](metricas.md). | Todos | Implementado y medido |
-| — | Compartir la ficha desde el sistema (WhatsApp, correo, etc.) | **S** | Ahorra descargar y adjuntar a mano. | CU05 | Implementado |
-| — | Panel de administración con la imagen de la empresa | **C** | Presentación profesional para la administradora. | — | Implementado |
-| — | Logo y marca de agua en la ficha PDF | **C** | Imagen de marca en lo que recibe el cliente. | CU05 | Implementado |
-| — | Reducción automática de fotos (máx. 1.920 px) | **C** | Ahorra espacio en el servidor y hace la ficha más liviana. | CU02 | Implementado |
-| — | Ordenamiento del listado (precio, habitaciones) | **C** | Facilita comparar inmuebles. | CU04 | Implementado |
-| — | Colores de la marca en todo el sistema | **C** | Coherencia visual con la empresa. | — | Implementado |
-| — | Roles y permisos diferenciados por asesor | **W** | Hoy todos los usuarios de la empresa ven la misma información. | — | Trabajo futuro |
-| — | Registro de clientes interesados (CRM) | **W** | No hace parte del problema planteado. | — | Trabajo futuro |
-| — | Publicación automática en portales inmobiliarios o enlace público | **W** | Expondría información fuera de la empresa. | — | Trabajo futuro |
-| — | Envío automático de correos o avisos por WhatsApp | **W** | Requiere servicios externos de pago. | — | Trabajo futuro |
-| — | Dominio propio y plan de alojamiento pago | **W** | Se usa el plan gratuito de PythonAnywhere. | — | Trabajo futuro |
+| RF19 | Compartir la ficha desde el sistema (WhatsApp, correo, etc.) | **S** | Ahorra descargar y adjuntar a mano. | CU05 | Implementado |
+| RF20 | Panel de administración con la imagen de la empresa | **C** | Presentación profesional para la administradora. | — | Implementado |
+| RF21 | Logo y marca de agua en la ficha PDF | **C** | Imagen de marca en lo que recibe el cliente. | CU05 | Implementado |
+| RNF05 | Reducción automática de fotos (máx. 1.920 px) | **C** | Ahorra espacio en el servidor y hace la ficha más liviana. | CU02 | Implementado |
+| RF22 | Ordenamiento del listado (precio, habitaciones) | **C** | Facilita comparar inmuebles. | CU04 | Implementado |
+| RNF06 | Colores de la marca en todo el sistema | **C** | Coherencia visual con la empresa. | — | Implementado |
+| RF23 | Roles y permisos diferenciados por asesor | **W** | Hoy todos los usuarios de la empresa ven la misma información. | — | Trabajo futuro |
+| RF24 | Registro de clientes interesados (CRM) | **W** | No hace parte del problema planteado. | — | Trabajo futuro |
+| RF25 | Publicación automática en portales inmobiliarios o enlace público | **W** | Expondría información fuera de la empresa. | — | Trabajo futuro |
+| RF26 | Envío automático de correos o avisos por WhatsApp | **W** | Requiere servicios externos de pago. | — | Trabajo futuro |
+| RNF07 | Dominio propio y plan de alojamiento pago | **W** | Se usa el plan gratuito de PythonAnywhere. | — | Trabajo futuro |
+
+## Incorporados durante el desarrollo
+
+Doce de las 33 filas de la matriz no figuraban en el documento de requerimientos de la Entrega 1 (ACT2). Se incorporaron sobre la marcha, por decisiones de la empresa o por mejoras que surgieron al construir y probar el sistema. Se les asignó un identificador nuevo para que la matriz sea trazable completa: nueve funcionales (RF18 a RF26) y tres no funcionales (RNF05 a RNF07).
+
+| ID | Qué es | Origen | Fecha | Estado |
+|---|---|---|---|---|
+| RF18 | Ofertas comerciales | Decisión de la empresa (amplía RF04: todo inmueble tiene al menos una oferta) | 23/10/2026 | Implementado |
+| RF21 | Logo y marca de agua en la ficha PDF | Decisión de la empresa (la ficha muestra solo el contacto general, sin datos internos) | 23/10/2026 | Implementado |
+| RF19 | Compartir la ficha desde el sistema | Mejora de operación | 24/10/2026 | Implementado |
+| RF20 | Panel de administración con la imagen de la empresa | Mejora de operación | 03/11/2026 | Implementado |
+| RNF06 | Colores de la marca en todo el sistema | Mejora de operación | 03/11/2026 | Implementado |
+| RNF05 | Reducción automática de fotos (máx. 1.920 px) | Mejora de operación | Sin fecha registrada | Implementado |
+| RF22 | Ordenamiento del listado (precio, habitaciones) | Complemento de la búsqueda (CU04) | Sin fecha registrada | Implementado |
+| RF23 a RF26, RNF07 | Roles por asesor, registro de clientes, publicación automática, envíos automáticos, dominio propio y alojamiento pago | Delimitación del alcance (Won't have) | — | Trabajo futuro |
 
 ## Resumen
 
