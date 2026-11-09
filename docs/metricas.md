@@ -81,14 +81,24 @@ Lighthouse mide lo que vive el usuario en el navegador: carga de la página, acc
 2. Ir a la pantalla que se va a medir y abrir las herramientas de desarrollador (F12) → pestaña **Lighthouse**.
 3. Modo **Navegación**, dispositivo **Escritorio** y categorías Rendimiento, Accesibilidad, Prácticas recomendadas y SEO.
 4. En el engranaje de configuración, **desmarcar «Borrar almacenamiento»** (*Clear storage*). Si queda marcado, Lighthouse cierra la sesión y mide la pantalla de ingreso.
-5. Pulsar **Analizar la carga de la página** y anotar los resultados. Repetir tres veces y dejar la mediana.
+5. Pulsar **Analizar la carga de la página** y anotar los resultados. Si se repite la medición, dejar la mediana.
 
-| Pantalla | Rendimiento | Accesibilidad | Prácticas recomendadas | SEO | FCP | LCP | TBT | CLS |
-|---|---:|---:|---:|---:|---:|---:|---:|---:|
-| Ingreso | | | | | | | | |
-| Listado de inmuebles | | | | | | | | |
-| Detalle de inmueble | | | | | | | | |
-| Formulario de nuevo inmueble | | | | | | | | |
+**Resultados** (Chrome, modo Escritorio, sitio publicado; una sola ejecución por pantalla):
+
+| Pantalla | Fecha | Contenido | Rendimiento | Accesibilidad | Prácticas recomendadas | SEO |
+|---|---|---|---:|---:|---:|---:|
+| Ingreso | 05/11/2026 | Antes de la descripción meta | 100 | 100 | 100 | 91 |
+| Ingreso | 05/11/2026 | Después de la descripción meta | 98 | 100 | 100 | 100 |
+| Listado de inmuebles | 05/11/2026 | Vacío | 100 | 94 | 100 | 91 |
+| Listado de inmuebles | 08/11/2026 | 3 inmuebles | 100 | 94 | 100 | 100 |
+| Listado con filtros avanzados abiertos | 08/11/2026 | 3 inmuebles | 100 | 94 | 100 | 100 |
+| Listado de propietarios | 08/11/2026 | 4 propietarios | 100 | 100 | 100 | 100 |
+| Todas las pólizas | 08/11/2026 | 1 póliza de prueba (próxima a vencer) | 100 | 93 | 100 | 100 |
+| Formulario de nuevo inmueble | 08/11/2026 | Formulario vacío | 100 | 95 | 100 | 100 |
+| Detalle de inmueble | 08/11/2026 | Inmueble con póliza | 100 | 95 | 100 | 100 |
+| Panel de administración | 08/11/2026 | Panel de Django | 100 | 96 | 100 | 54 |
+
+El SEO del ingreso y del listado pasó de 91 a 100 tras agregar la descripción meta (commit del 05/11/2026). El rendimiento del ingreso marcó 98 en la segunda medición: es una variación normal entre ejecuciones (depende de la red y del servidor en ese momento) y sigue en el rango verde (90 a 100). El SEO de 54 del panel de administración es intencional: Django incluye en el panel la etiqueta `<meta name="robots" content="NONE,NOARCHIVE">` para que los buscadores no lo indexen, y Lighthouse lo penaliza. Un panel interno no debe aparecer en Google. No se registraron FCP, LCP, TBT ni CLS; las observaciones de accesibilidad quedan pendientes de revisar.
 
 *FCP: primer contenido visible. LCP: carga del elemento principal. TBT: tiempo en que la página no responde. CLS: estabilidad visual (que nada «salte» mientras carga).*
 

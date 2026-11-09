@@ -4,7 +4,9 @@ Sistema web para centralizar la información de los inmuebles de **OP Agente Inm
 
 Proyecto de práctica profesional de **Danna Valentina Betancourt Pico**, Ingeniería de Software, Facultad de Ingeniería, Corporación Universitaria Iberoamericana (Bogotá, 2026).
 
-![Listado de inmuebles](docs/capturas/listado_inmuebles.png)
+**Sistema publicado:** https://opagenteinmobiliario.pythonanywhere.com/ (el acceso exige usuario y contraseña).
+
+![Detalle de un inmueble registrado](docs/capturas/detalle_inmueble.png)
 
 ## Contenido
 
@@ -19,6 +21,7 @@ Proyecto de práctica profesional de **Danna Valentina Betancourt Pico**, Ingeni
 - [Métricas de rendimiento](#métricas-de-rendimiento)
 - [Publicación en producción](#publicación-en-producción)
 - [Capturas](#capturas)
+- [Documentación](#documentación)
 - [Estado del proyecto](#estado-del-proyecto)
 
 ## Problema que resuelve
@@ -54,14 +57,14 @@ La empresa administraba la información de sus inmuebles en hojas de cálculo, c
 
 ## Priorización de requerimientos (MoSCoW)
 
-Los 17 requerimientos funcionales, los 4 no funcionales y los ajustes acordados con la empresa se priorizaron con el método MoSCoW. La matriz completa, con la justificación de cada uno, está en [docs/moscow.md](docs/moscow.md).
+Los 33 requerimientos se priorizaron con el método MoSCoW: 21 venían del documento de requerimientos de la Entrega 1 (RF01 a RF17 y RNF01 a RNF04) y 12 surgieron durante la construcción (RF18 a RF26 y RNF05 a RNF07). La matriz completa, con la justificación y el origen de cada uno, está en [docs/moscow.md](docs/moscow.md).
 
 | Prioridad | Qué incluye | Estado |
 |---|---|---|
-| **Must have** (14) | Registro de inmuebles (RF01, RF02, RF04, RF07, RF16), ofertas comerciales, propietarios (RF08, RF09), fotografías (RF10), documentos legales (RF11), búsqueda (RF14), ficha PDF (RF15), acceso web (RNF01) y seguridad (RNF04) | Implementado |
-| **Should have** (9) | Zonas comunes (RF03), matrículas (RF05), datos de bodega y local (RF06), pólizas y alertas (RF12, RF13), información adicional (RF17), facilidad de uso (RNF02), rendimiento (RNF03) y compartir la ficha | Implementado |
-| **Could have** (5) | Panel de administración con la marca, logo y marca de agua en el PDF, reducción automática de fotos, ordenamiento del listado y colores de la marca | Implementado |
-| **Won't have** (5) | Roles por asesor, registro de clientes, publicación en portales, envíos automáticos y dominio propio | Fuera del alcance de esta versión |
+| **Must have** (14) | Registro de inmuebles (RF01, RF02, RF04, RF07, RF16), ofertas comerciales (RF18), propietarios (RF08, RF09), fotografías (RF10), documentos legales (RF11), búsqueda (RF14), ficha PDF (RF15), acceso web (RNF01) y seguridad (RNF04) | Implementado |
+| **Should have** (9) | Zonas comunes (RF03), matrículas (RF05), datos de bodega y local (RF06), pólizas y alertas (RF12, RF13), información adicional (RF17), facilidad de uso (RNF02), rendimiento (RNF03) y compartir la ficha (RF19) | Implementado |
+| **Could have** (5) | Panel de administración con la marca (RF20), logo y marca de agua en el PDF (RF21), reducción automática de fotos (RNF05), ordenamiento del listado (RF22) y colores de la marca (RNF06) | Implementado |
+| **Won't have** (5) | Roles por asesor (RF23), registro de clientes (RF24), publicación en portales (RF25), envíos automáticos (RF26) y dominio propio (RNF07) | Fuera del alcance de esta versión |
 
 ## Arquitectura y modelo de datos
 
@@ -92,7 +95,7 @@ gestion-inmobiliaria-op/
 ├── requirements.txt
 ├── gestion_inmobiliaria/        # Configuración (settings.py, urls.py)
 ├── templates/admin/             # Personalización del panel de administración
-├── docs/                        # Capturas, diagramas, matriz MoSCoW, métricas y ficha de ejemplo
+├── docs/                        # Informes técnico y de pruebas, capturas, diagramas, matriz MoSCoW, y métricas
 └── inmuebles/                   # Aplicación principal
     ├── models.py                # Entidades
     ├── views.py                 # Lógica de cada pantalla
@@ -170,25 +173,43 @@ En desarrollo no se necesita configuración adicional. En el servidor se activa 
 |---|---|
 | `DJANGO_PRODUCCION` | `1` |
 | `DJANGO_SECRET_KEY` | Clave secreta larga y aleatoria |
-| `DJANGO_ALLOWED_HOSTS` | Dominio del sitio, por ejemplo `opagente.pythonanywhere.com` |
+| `DJANGO_ALLOWED_HOSTS` | Dominio del sitio, por ejemplo `opagenteinmobiliario.pythonanywhere.com` |
 
 Con el modo de producción activo: `DEBUG` desactivado, solo HTTPS, cookies seguras y sesión de 12 horas. Después de instalar se ejecutan `python manage.py migrate` y `python manage.py collectstatic`, y la carpeta `staticfiles/` se publica como `/static/`. El alojamiento previsto es PythonAnywhere.
 
 ## Capturas
 
-| Ingreso | Detalle del inmueble |
-|---|---|
-| ![Ingreso](docs/capturas/ingreso.png) | ![Detalle](docs/capturas/detalle_inmueble.png) |
+Capturas del sistema publicado con información real de la empresa: una bodega de 8.800 m² en el Parque Industrial Santo Domingo (Mosquera), registrada con tres ofertas comerciales en arriendo. Los datos personales del propietario se ocultaron. Los inmuebles registrados son reales; la póliza próxima a vencer es un registro de prueba para verificar las alertas.
 
-Ficha en PDF ([ver ejemplo](docs/ficha_ejemplo.pdf)):
+**Ingreso al sistema**
+
+![Ingreso](docs/capturas/ingreso.png)
+
+**Detalle del inmueble**
+
+![Detalle del inmueble](docs/capturas/detalle_inmueble.png)
+
+**Fotografías clasificadas por área**
+
+![Fotografías del inmueble](docs/capturas/fotografias_inmueble.jpg)
+
+**Ficha en PDF** (3 páginas: fotografías y ubicación; características, datos técnicos y ofertas; información adicional). Incluye el logo, la marca de agua y el IVA calculado de cada oferta.
 
 ![Ficha PDF](docs/capturas/ficha_pdf.png)
 
-Panel de administración:
+**Compartir la ficha** desde el sistema (WhatsApp, correo, Teams, etc.)
+
+![Compartir ficha](docs/capturas/compartir_ficha.png)
+
+**Panel de administración**
 
 ![Panel de administración](docs/capturas/panel_administracion.png)
 
-*Las capturas usan datos de prueba.*
+## Documentación
+
+- [Informe técnico del código](docs/Informe_Tecnico_Codigo.docx): tecnologías, arquitectura, modelo de datos, vistas, seguridad, decisiones técnicas y código comentado (versión del 04/11/2026).
+- [Informe de pruebas del sistema](docs/Informe_Pruebas_Sistema.docx): 137 pruebas automáticas, cobertura y tiempos de respuesta (versión del 04/11/2026).
+- [Matriz MoSCoW](docs/moscow.md) y [métricas de rendimiento y calidad web](docs/metricas.md).
 
 ## Estado del proyecto
 
